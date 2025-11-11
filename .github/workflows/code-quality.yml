@@ -1,0 +1,43 @@
+name: Code Quality
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          cd frontend-app
+          npm ci
+
+      - name: Run ESLint
+        run: |
+          cd frontend-app
+          npx eslint . --ext .ts,.tsx --max-warnings 0
+
+      - name: Check TypeScript
+        run: |
+          cd frontend-app
+          npx tsc --noEmit
+
+      - name: Check formatting (Prettier)
+        run: |
+          cd frontend-app
+          npx prettier --check "src/**/*.{ts,tsx,css}"
+        continue-on-error: true

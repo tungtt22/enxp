@@ -1,0 +1,19 @@
+{
+  "name": "@enxp-plugins/projects",
+  "version": "1.0.0",
+  "description": "Projects management frontend plugin",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "dependencies": {
+    "@enxp/core": "file:../../packages/core",
+    "@enxp/frontend": "file:../../packages/frontend",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.2",
+    "@types/react": "^18.2.0"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@enxp/cli",
+  "version": "1.0.0",
+  "description": "CLI tool for ENXP platform plugin management",
+  "main": "dist/index.js",
+  "bin": {
+    "enxp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "commander": "^11.1.0",
+    "fs-extra": "^11.2.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.2"
+  }
+}

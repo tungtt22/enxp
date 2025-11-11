@@ -1,0 +1,62 @@
+/* Global Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Fix for Ant Design Menu - remove bullet points */
+ul {
+  list-style: none;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Sidebar Menu Styles */
+.ant-menu-dark.ant-menu-inline .ant-menu-item,
+.ant-menu-dark.ant-menu-inline .ant-menu-submenu-title {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ant-menu-dark.ant-menu-inline .ant-menu-item::before,
+.ant-menu-dark.ant-menu-inline .ant-menu-submenu-title::before {
+  display: none;
+}
+
+.ant-menu-item,
+.ant-menu-submenu-title {
+  list-style-type: none !important;
+}
+
+.ant-menu-item::marker,
+.ant-menu-submenu-title::marker {
+  display: none !important;
+  content: none !important;
+}

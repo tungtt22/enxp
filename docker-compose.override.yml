@@ -1,0 +1,41 @@
+# Docker Compose Override for Local Development
+# This file is automatically loaded by docker-compose and overrides settings in docker-compose.yml
+# Use this for local development configurations
+
+version: '3.8'
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      # Development database settings
+      DB_SYNCHRONIZE: "true"  # Auto-sync schema in development
+      DB_LOGGING: "true"      # Enable SQL logging
+
+  backend:
+    build:
+      target: builder  # Use builder stage for development with hot reload
+    volumes:
+      # Mount source code for hot reload
+      - ./packages/backend/src:/app/packages/backend/src
+      - ./packages/core/src:/app/packages/core/src
+      - ./server.ts:/app/server.ts
+    environment:
+      NODE_ENV: development
+      DB_SYNCHRONIZE: "true"
+      DB_LOGGING: "true"
+    command: ["npm", "run", "dev"]  # Use dev script with watch mode
+
+  frontend:
+    build:
+      target: builder
+    volumes:
+      # Mount source for hot reload
+      - ./frontend-app/src:/app/src
+      - ./frontend-app/public:/app/public
+    environment:
+      VITE_API_URL: http://localhost:3000
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    ports:
+      - "3001:3001"  # Vite dev server port

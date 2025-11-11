@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Compiled files in src (should be in dist only)
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map
+src/**/*.ts.map
+src/**/*.tsx.map
+!src/**/*.spec.js
+!src/**/*.test.js
+
+# Backup files
+*.backup
+*.old
+*~
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Plugin development
+plugins/*/node_modules
+plugins/*/dist
+.plugin-cache/
