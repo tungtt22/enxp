@@ -16,6 +16,20 @@ src/**/*.ts.map
 src/**/*.tsx.map
 !src/**/*.spec.js
 !src/**/*.test.js
+packages/**/*.js
+packages/**/*.d.ts
+packages/**/*.js.map
+packages/**/*.ts.map
+packages/**/*.tsx.map
+!packages/**/*.spec.js
+!packages/**/*.test.js
+plugins/**/*.js
+plugins/**/*.d.ts
+plugins/**/*.js.map
+plugins/**/*.ts.map
+plugins/**/*.tsx.map
+!plugins/**/*.spec.js
+!plugins/**/*.test.js
 
 # Backup files
 *.backup

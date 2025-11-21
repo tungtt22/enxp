@@ -1,0 +1,249 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ENXP Plugin Manifest",
+  "description": "Manifest file for ENXP unified plugins",
+  "type": "object",
+  "required": ["id", "name", "version", "engines", "main"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the plugin (kebab-case recommended)",
+      "pattern": "^[a-z0-9-]+$"
+    },
+    "name": {
+      "type": "string",
+      "description": "Plugin name"
+    },
+    "version": {
+      "type": "string",
+      "description": "Plugin version (semver format)",
+      "pattern": "^\\d+\\.\\d+\\.\\d+"
+    },
+    "displayName": {
+      "type": "string",
+      "description": "Display name shown in UI"
+    },
+    "description": {
+      "type": "string",
+      "description": "Brief description of the plugin"
+    },
+    "publisher": {
+      "type": "string",
+      "description": "Publisher or author name"
+    },
+    "categories": {
+      "type": "array",
+      "description": "Plugin categories",
+      "items": {
+        "type": "string",
+        "enum": [
+          "Project Management",
+          "Development Tools",
+          "Data Visualization",
+          "Productivity",
+          "Utilities",
+          "Other"
+        ]
+      }
+    },
+    "engines": {
+      "type": "object",
+      "description": "Engine compatibility",
+      "required": ["enxp"],
+      "properties": {
+        "enxp": {
+          "type": "string",
+          "description": "Minimum ENXP version (semver range)"
+        }
+      }
+    },
+    "activationEvents": {
+      "type": "array",
+      "description": "Events that trigger plugin activation",
+      "items": {
+        "type": "string",
+        "pattern": "^(onStartup|onCommand:|onView:|onLanguage:|onUri:)"
+      }
+    },
+    "main": {
+      "type": "string",
+      "description": "Main entry point (relative path)"
+    },
+    "contributes": {
+      "type": "object",
+      "description": "Plugin contributions",
+      "properties": {
+        "commands": {
+          "type": "array",
+          "description": "Command contributions",
+          "items": {
+            "type": "object",
+            "required": ["command", "title"],
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "category": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "enablement": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "views": {
+          "type": "object",
+          "description": "View contributions",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "name"],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "when": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "menus": {
+          "type": "object",
+          "description": "Menu contributions",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["command"],
+              "properties": {
+                "command": {
+                  "type": "string"
+                },
+                "when": {
+                  "type": "string"
+                },
+                "group": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "routes": {
+          "type": "array",
+          "description": "Frontend route contributions",
+          "items": {
+            "type": "object",
+            "required": ["path", "title"],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "exact": {
+                "type": "boolean"
+              }
+            }
+          }
+        },
+        "api": {
+          "type": "object",
+          "description": "Backend API contributions",
+          "required": ["basePath", "routes"],
+          "properties": {
+            "basePath": {
+              "type": "string"
+            },
+            "routes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["method", "path", "handler"],
+                "properties": {
+                  "method": {
+                    "type": "string",
+                    "enum": ["GET", "POST", "PUT", "DELETE", "PATCH"]
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "handler": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "configuration": {
+          "type": "array",
+          "description": "Configuration contributions",
+          "items": {
+            "type": "object",
+            "required": ["title", "properties"],
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "properties": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["type"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": ["string", "number", "boolean", "array", "object"]
+                    },
+                    "default": {},
+                    "description": {
+                      "type": "string"
+                    },
+                    "enum": {
+                      "type": "array"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "Runtime dependencies",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "devDependencies": {
+      "type": "object",
+      "description": "Development dependencies",
+      "additionalProperties": {
+        "type": "string"
+      }
+    }
+  }
+}

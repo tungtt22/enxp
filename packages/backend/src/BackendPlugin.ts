@@ -19,6 +19,9 @@ export interface IBackendPlugin {
   
   /** Register event handlers */
   registerEventHandlers?(): void;
+
+  /** Get OpenAPI specification for this plugin */
+  getOpenAPISpec?(): any;
 }
 
 /**
@@ -62,6 +65,11 @@ export abstract class BackendPlugin extends BasePlugin implements IBackendPlugin
    */
   registerEventHandlers?(): void;
 
+  /**
+   * Override to provide OpenAPI specification
+   */
+  getOpenAPISpec?(): any;
+
   protected async onActivate(): Promise<void> {
     // Register backend components
     if (this.registerModels) {
@@ -88,6 +96,10 @@ export interface APIRoute {
   path: string;
   handler: (req: any, res: any, next?: any) => Promise<any> | any;
   middleware?: any[];
+  description?: string;
+  tags?: string[];
+  requestBody?: any;
+  responses?: any;
 }
 
 /**

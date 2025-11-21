@@ -1,0 +1,80 @@
+{
+  "$schema": "../../schemas/plugin.schema.json",
+  "id": "projects-management",
+  "name": "Project Management",
+  "version": "1.0.0",
+  "displayName": "Project Manager",
+  "description": "Manage projects with full CRUD operations",
+  "publisher": "enxp",
+  "categories": ["Project Management", "Productivity"],
+  "engines": {
+    "enxp": "^1.0.0"
+  },
+  "activationEvents": [
+    "onStartup"
+  ],
+  "main": "./dist/index.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "projects.create",
+        "title": "Create New Project",
+        "category": "Projects"
+      },
+      {
+        "command": "projects.delete",
+        "title": "Delete Project",
+        "category": "Projects"
+      }
+    ],
+    "routes": [
+      {
+        "path": "/projects",
+        "title": "Projects",
+        "icon": "📁"
+      },
+      {
+        "path": "/projects/:id",
+        "title": "Project Details"
+      }
+    ],
+    "api": {
+      "basePath": "/api/plugins/projects",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/projects",
+          "handler": "getProjects",
+          "description": "Get all projects"
+        },
+        {
+          "method": "POST",
+          "path": "/projects",
+          "handler": "createProject",
+          "description": "Create a new project"
+        },
+        {
+          "method": "GET",
+          "path": "/projects/:id",
+          "handler": "getProject",
+          "description": "Get project by ID"
+        },
+        {
+          "method": "PUT",
+          "path": "/projects/:id",
+          "handler": "updateProject",
+          "description": "Update project"
+        },
+        {
+          "method": "DELETE",
+          "path": "/projects/:id",
+          "handler": "deleteProject",
+          "description": "Delete project"
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "@enxp/core": "^1.0.0"
+  }
+}

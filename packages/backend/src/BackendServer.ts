@@ -1,8 +1,11 @@
 import 'reflect-metadata';
 import 'dotenv/config';
 import express, { Express, Router } from 'express';
-import { PluginManager } from '@enxp/core';
-import { BackendPlugin, APIRoute } from './BackendPlugin';
+import swaggerUi from 'swagger-ui-express';
+import path from 'path';
+import fs from 'fs/promises';
+import { PluginManager, PluginLoader, PluginMetadata } from '@enxp/core';
+import { BackendPlugin } from './BackendPlugin';
 import { databaseService } from './database';
 
 /**
@@ -11,6 +14,7 @@ import { databaseService } from './database';
 export class BackendServer {
   private app: Express;
   private pluginManager: PluginManager;
+  private pluginLoader: PluginLoader;
   private port: number;
   private routers: Map<string, Router> = new Map();
 
@@ -19,8 +23,19 @@ export class BackendServer {
     this.port = port;
     this.pluginManager = new PluginManager(config);
     
+    // Initialize plugin loader for server environment
+    this.pluginLoader = new PluginLoader(
+      this.pluginManager.getRegistry(),
+      this.pluginManager.getLogger(),
+      this.pluginManager.getEvents(),
+      this.pluginManager.getAPI(),
+      'server'
+    );
+    
     this.setupMiddleware();
+    this.setupSwagger();
     this.setupPluginEventHandlers();
+    this.setupPluginLoaderEventHandlers();
   }
 
   /**
@@ -37,6 +52,121 @@ export class BackendServer {
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
       next();
     });
+  }
+
+  /**
+   * Setup Swagger API documentation
+   */
+  private setupSwagger(): void {
+    // Serve Swagger UI at /api-docs
+    this.app.use('/api-docs', swaggerUi.serve);
+    this.app.get('/api-docs', (req, res, next) => {
+      const swaggerSpec = this.generateSwaggerSpec();
+      const setup = swaggerUi.setup(swaggerSpec);
+      setup(req, res, next);
+    });
+    
+    // Serve raw OpenAPI spec at /api-docs/json
+    this.app.get('/api-docs/json', (req, res) => {
+      const swaggerSpec = this.generateSwaggerSpec();
+      res.json(swaggerSpec);
+    });
+  }
+
+  /**
+   * Generate dynamic Swagger specification
+   */
+  private generateSwaggerSpec(): any {
+    const paths: any = {};
+    const tags: any[] = [];
+    const schemas: any = {
+      Error: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', example: false },
+          error: { type: 'string' }
+        }
+      },
+      Success: {
+        type: 'object',
+        properties: {
+          success: { type: 'boolean', example: true },
+          data: { type: 'object' }
+        }
+      }
+    };
+
+    // Collect specs from all plugins
+    this.routers.forEach((router, pluginId) => {
+      const plugin = this.pluginManager.getPlugin(pluginId);
+      if (!plugin) return;
+
+      // Get manifest to find custom basePath
+      const manifest = (plugin as any).getManifest?.();
+      const customBasePath = manifest?.contributes?.api?.basePath;
+      
+      // Remove -backend suffix from plugin ID for cleaner API paths
+      const cleanPluginId = pluginId.replace(/-backend$/, '').replace(/-management$/, '-management');
+      const basePath = customBasePath || `/api/plugins/${pluginId}`;
+      
+      // Add plugin tag
+      tags.push({
+        name: pluginId,
+        description: plugin.description || `API endpoints for ${plugin.name}`
+      });
+
+      // Get OpenAPI spec from plugin (check for both BackendPlugin and Plugin types)
+      const getOpenAPISpec = (plugin as any).getOpenAPISpec;
+      if (getOpenAPISpec && typeof getOpenAPISpec === 'function') {
+        const pluginSpec = getOpenAPISpec.call(plugin);
+        
+        // Merge paths
+        if (pluginSpec.paths) {
+          Object.keys(pluginSpec.paths).forEach(path => {
+            const fullPath = basePath + path;
+            paths[fullPath] = pluginSpec.paths[path];
+            
+            // Add plugin tag to all operations
+            Object.keys(paths[fullPath]).forEach(method => {
+              if (!paths[fullPath][method].tags) {
+                paths[fullPath][method].tags = [];
+              }
+              if (!paths[fullPath][method].tags.includes(pluginId)) {
+                paths[fullPath][method].tags.push(pluginId);
+              }
+            });
+          });
+        }
+        
+        // Merge schemas
+        if (pluginSpec.components && pluginSpec.components.schemas) {
+          Object.assign(schemas, pluginSpec.components.schemas);
+        }
+      }
+    });
+
+    return {
+      openapi: '3.0.0',
+      info: {
+        title: 'ENXP Platform API',
+        version: '1.0.0',
+        description: 'RESTful API documentation for ENXP Platform backend plugins',
+        contact: {
+          name: 'ENXP Team',
+        },
+      },
+      servers: [
+        {
+          url: `http://localhost:${this.port}`,
+          description: 'Development server',
+        },
+      ],
+      tags,
+      paths,
+      components: {
+        schemas
+      }
+    };
   }
 
   /**
@@ -60,6 +190,21 @@ export class BackendServer {
   }
 
   /**
+   * Setup unified plugin event handlers
+   */
+  private setupPluginLoaderEventHandlers(): void {
+    const events = this.pluginManager.getEvents();
+
+    // Handle router registration from plugins
+    events.on('plugin:register-router', (data: any) => {
+      const { pluginId, basePath, router } = data;
+      this.app.use(basePath, router);
+      this.routers.set(pluginId, router);
+      console.log(`[BackendServer] Registered plugin routes: ${basePath}`);
+    });
+  }
+
+  /**
    * Register plugin routes
    */
   private registerPluginRoutes(plugin: BackendPlugin): void {
@@ -68,8 +213,9 @@ export class BackendServer {
     const router = Router();
     plugin.registerRoutes(router);
     
-    // Mount router at plugin path
-    const basePath = `/api/plugins/${plugin.id}`;
+    // Mount router at plugin path (remove -backend suffix if exists)
+    const cleanPluginId = plugin.id.replace(/-backend$/, '');
+    const basePath = `/api/plugins/${cleanPluginId}`;
     this.app.use(basePath, router);
     this.routers.set(plugin.id, router);
     
@@ -96,16 +242,47 @@ export class BackendServer {
   }
 
   /**
-   * Load a plugin
+   * Load a plugin with manifest
    */
   async loadPlugin(pluginPath: string): Promise<void> {
-    await this.pluginManager.loadPlugin(pluginPath);
+    // Check if it's a manifest-based plugin (has plugin.json)
+    try {
+      const manifestPath = path.join(pluginPath, 'plugin.json');
+      await fs.access(manifestPath);
+      // It's a manifest-based plugin, use PluginLoader
+      // PluginLoader already registers the plugin with the registry
+      const plugin = await this.pluginLoader.load(pluginPath);
+      console.log(`[BackendServer] Loaded plugin: ${plugin.id}`);
+    } catch {
+      // Traditional plugin, use PluginManager
+      await this.pluginManager.loadPlugin(pluginPath);
+    }
   }
 
   /**
    * Activate a plugin
    */
   async activatePlugin(pluginId: string): Promise<void> {
+    const plugin = this.pluginManager.getPlugin(pluginId);
+    if (!plugin) {
+      throw new Error(`Plugin ${pluginId} not found`);
+    }
+
+    // Check if it's a manifest-based plugin
+    const manifestPlugin = plugin as any;
+    if (manifestPlugin.getManifest) {
+      // It's a manifest-based plugin
+      const manifest = manifestPlugin.getManifest();
+      if (manifest) {
+        const context = this.pluginLoader.createContext(manifest, plugin);
+        await plugin.initialize(context);
+        await plugin.activate();
+        console.log(`[BackendServer] Activated plugin: ${pluginId}`);
+        return;
+      }
+    }
+
+    // Traditional plugin
     await this.pluginManager.activatePlugin(pluginId);
   }
 
@@ -131,9 +308,8 @@ export class BackendServer {
     try {
       await databaseService.connect();
     } catch (error) {
-      console.error('Failed to connect to database:', error);
-      // You can choose to exit or continue without database
-      // process.exit(1);
+      console.error('❌ Database connection failed:', error);
+      // Server continues without database (using in-memory data)
     }
 
     // Health check endpoint

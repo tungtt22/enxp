@@ -15,21 +15,23 @@ A modern, plugin-based engineering platform with dynamic plugin system supportin
 **Last Optimization:** November 11, 2025
 
 ### Recent Updates
+- ✅ VS Code-style plugin architecture implemented
+- ✅ Manifest-based plugin loading (plugin.json)
+- ✅ Unified plugin structure (single folder for client/server/shared)
+- ✅ All plugins migrated to new architecture
 - ✅ Code optimization completed (26% reduction in plugins)
 - ✅ Shared component library created
 - ✅ Scripts consolidated and organized
 - ✅ Docker deployment ready
 - ✅ GitHub Actions CI/CD configured
-- ✅ Backend PostgreSQL integration
-- ✅ All packages built successfully
 
 ### Platform Status
 - ✅ Backend server operational on port 3000
 - ✅ Frontend UI running on port 3001
-- ✅ Database connection with PostgreSQL
-- ✅ Plugin system tested and working
-- ✅ 3 active plugins (Projects, Templates, Activity)
+- ✅ Plugin system with VS Code-style architecture
+- ✅ 3 active plugins (Projects, Activity, Templates)
 - ✅ All packages built successfully
+- ✅ Unified plugin structure with manifest-based loading
 
 ## 🎯 Features
 
@@ -535,35 +537,146 @@ See `TROUBLESHOOTING.md` for complete issue history and solutions.
 
 ## 🔍 API Endpoints
 
-### Backend Health Check
+### Core Endpoints
 ```bash
+# Health check
 curl http://localhost:3000/health
+```
+
+### Projects Management Plugin
+```bash
+# Get all projects
+curl http://localhost:3000/api/plugins/projects/projects
+
+# Get project by ID
+curl http://localhost:3000/api/plugins/projects/projects/1
+
+# Create project
+curl -X POST http://localhost:3000/api/plugins/projects/projects \
+  -H "Content-Type: application/json" \
+  -d '{"name":"New Project","description":"Project description","status":"active"}'
+
+# Update project
+curl -X PUT http://localhost:3000/api/plugins/projects/projects/1 \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Updated Project","status":"completed"}'
+
+# Delete project
+curl -X DELETE http://localhost:3000/api/plugins/projects/projects/1
+```
+
+### Activity Management Plugin
+```bash
+# Get all activities
+curl http://localhost:3000/api/plugins/activity-management/activities
+
+# Get activities by type
+curl http://localhost:3000/api/plugins/activity-management/activities?type=deployment
+
+# Get activities by status
+curl http://localhost:3000/api/plugins/activity-management/activities?status=success
+
+# Get activity by ID
+curl http://localhost:3000/api/plugins/activity-management/activities/1
+
+# Create activity
+curl -X POST http://localhost:3000/api/plugins/activity-management/activities \
+  -H "Content-Type: application/json" \
+  -d '{"type":"build","status":"success","title":"Build #124","description":"Build completed"}'
+
+# Update activity
+curl -X PUT http://localhost:3000/api/plugins/activity-management/activities/1 \
+  -H "Content-Type: application/json" \
+  -d '{"status":"failed"}'
+
+# Delete activity
+curl -X DELETE http://localhost:3000/api/plugins/activity-management/activities/1
+
+# Get activity statistics
+curl http://localhost:3000/api/plugins/activity-management/stats
 ```
 **Response:**
 ```json
 {
-  "status": "ok",
-  "timestamp": "2025-11-10T...",
-  "plugins": [
-    {
-      "id": "hello-world",
-      "name": "Hello World Plugin",
-      "version": "1.0.0",
-      "status": "active"
-    }
-  ]
+  "total": 5,
+  "byType": {
+    "deployment": 1,
+    "build": 1,
+    "commit": 1,
+    "review": 1,
+    "issue": 1
+  },
+  "byStatus": {
+    "success": 3,
+    "failed": 0,
+    "pending": 1,
+    "in_progress": 1
+  }
 }
 ```
 
-### Plugin API Example
+### Templates Management Plugin
 ```bash
-curl http://localhost:3000/api/plugins/hello-world/hello
+# Get all templates
+curl http://localhost:3000/api/plugins/templates-management/templates
+
+# Filter templates by category
+curl http://localhost:3000/api/plugins/templates-management/templates?category=Backend
+
+# Filter by complexity
+curl http://localhost:3000/api/plugins/templates-management/templates?complexity=Advanced
+
+# Limit results
+curl http://localhost:3000/api/plugins/templates-management/templates?limit=3
+
+# Get template by ID
+curl http://localhost:3000/api/plugins/templates-management/templates/1
+
+# Create template
+curl -X POST http://localhost:3000/api/plugins/templates-management/templates \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name":"REST API Template",
+    "description":"RESTful API with Express and TypeScript",
+    "category":"Backend",
+    "icon":"🔌",
+    "complexity":"Intermediate",
+    "tags":["Express","TypeScript","REST"]
+  }'
+
+# Update template
+curl -X PUT http://localhost:3000/api/plugins/templates-management/templates/1 \
+  -H "Content-Type: application/json" \
+  -d '{"description":"Updated description","complexity":"Advanced"}'
+
+# Delete template
+curl -X DELETE http://localhost:3000/api/plugins/templates-management/templates/1
+
+# Increment usage count
+curl -X POST http://localhost:3000/api/plugins/templates-management/templates/1/use
+
+# Get categories
+curl http://localhost:3000/api/plugins/templates-management/categories
+
+# Get statistics
+curl http://localhost:3000/api/plugins/templates-management/stats
 ```
 **Response:**
 ```json
 {
-  "message": "Hello from HelloWorld plugin!",
-  "timestamp": "2025-11-10T..."
+  "total": 6,
+  "byCategory": {
+    "Backend": 3,
+    "Frontend": 1,
+    "Mobile": 1,
+    "Data": 1
+  },
+  "byComplexity": {
+    "Advanced": 3,
+    "Intermediate": 2,
+    "Beginner": 1
+  },
+  "totalUsage": 1434
 }
 ```
 

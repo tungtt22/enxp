@@ -1,0 +1,82 @@
+{
+  "$schema": "../../schemas/plugin.schema.json",
+  "id": "activity-management",
+  "name": "Activity Management",
+  "version": "1.0.0",
+  "displayName": "Activity Tracker",
+  "description": "Track and manage development activities",
+  "publisher": "enxp",
+  "categories": ["Development Tools", "Productivity"],
+  "engines": {
+    "enxp": "^1.0.0"
+  },
+  "activationEvents": [
+    "onStartup"
+  ],
+  "main": "./dist/index.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "activity.create",
+        "title": "Create New Activity",
+        "category": "Activity"
+      },
+      {
+        "command": "activity.delete",
+        "title": "Delete Activity",
+        "category": "Activity"
+      }
+    ],
+    "routes": [
+      {
+        "path": "/activity",
+        "title": "Activity",
+        "icon": "📊"
+      }
+    ],
+    "api": {
+      "basePath": "/api/plugins/activity",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/activities",
+          "handler": "getActivities",
+          "description": "Get all activities"
+        },
+        {
+          "method": "POST",
+          "path": "/activities",
+          "handler": "createActivity",
+          "description": "Create a new activity"
+        },
+        {
+          "method": "GET",
+          "path": "/activities/:id",
+          "handler": "getActivity",
+          "description": "Get activity by ID"
+        },
+        {
+          "method": "PUT",
+          "path": "/activities/:id",
+          "handler": "updateActivity",
+          "description": "Update activity"
+        },
+        {
+          "method": "DELETE",
+          "path": "/activities/:id",
+          "handler": "deleteActivity",
+          "description": "Delete activity"
+        },
+        {
+          "method": "GET",
+          "path": "/stats",
+          "handler": "getStats",
+          "description": "Get activity statistics"
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "@enxp/core": "^1.0.0"
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "id": "templates-management",
+  "name": "Templates Management",
+  "version": "1.0.0",
+  "description": "Architecture templates management plugin with categorization and usage tracking",
+  "publisher": "enxp",
+  "categories": ["Development Tools", "Productivity"],
+  "activationEvents": ["*"],
+  "main": "./dist/index.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "templates.refresh",
+        "title": "Refresh Templates"
+      },
+      {
+        "command": "templates.create",
+        "title": "Create New Template"
+      }
+    ],
+    "routes": [
+      {
+        "path": "/templates",
+        "description": "Templates dashboard view"
+      }
+    ],
+    "api": [
+      {
+        "method": "GET",
+        "path": "/templates",
+        "description": "Get all templates with optional filters"
+      },
+      {
+        "method": "GET",
+        "path": "/templates/:id",
+        "description": "Get template by ID"
+      },
+      {
+        "method": "POST",
+        "path": "/templates",
+        "description": "Create new template"
+      },
+      {
+        "method": "PUT",
+        "path": "/templates/:id",
+        "description": "Update template"
+      },
+      {
+        "method": "DELETE",
+        "path": "/templates/:id",
+        "description": "Delete template"
+      },
+      {
+        "method": "POST",
+        "path": "/templates/:id/use",
+        "description": "Increment template usage count"
+      },
+      {
+        "method": "GET",
+        "path": "/categories",
+        "description": "Get all template categories"
+      },
+      {
+        "method": "GET",
+        "path": "/stats",
+        "description": "Get template statistics"
+      }
+    ]
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  }
+}

@@ -126,6 +126,9 @@ export interface IPluginRegistry {
   
   /** Get plugin state */
   getState(pluginId: string): PluginState;
+  
+  /** Set plugin state */
+  setState(pluginId: string, state: PluginState): void;
 }
 
 /**
@@ -177,4 +180,193 @@ export interface IPluginLoader {
   
   /** Reload a plugin */
   reload(pluginId: string): Promise<void>;
+}
+
+/**
+ * Unified Plugin Manifest (like VS Code package.json)
+ */
+export interface PluginManifest {
+  /** Unique plugin identifier */
+  id: string;
+  
+  /** Display name */
+  name: string;
+  
+  /** Version (semver) */
+  version: string;
+  
+  /** Display name for UI */
+  displayName?: string;
+  
+  /** Description */
+  description?: string;
+  
+  /** Publisher/Author */
+  publisher?: string;
+  
+  /** Categories */
+  categories?: string[];
+  
+  /** Engine compatibility */
+  engines: {
+    enxp: string;
+  };
+  
+  /** Activation events (when to load plugin) */
+  activationEvents?: ActivationEvent[];
+  
+  /** Main entry point */
+  main: string;
+  
+  /** Contribution points */
+  contributes?: PluginContributions;
+  
+  /** Dependencies */
+  dependencies?: Record<string, string>;
+  
+  /** Dev dependencies */
+  devDependencies?: Record<string, string>;
+}
+
+/**
+ * Activation events (when plugin should be activated)
+ */
+export type ActivationEvent =
+  | 'onStartup'
+  | `onCommand:${string}`
+  | `onView:${string}`
+  | `onLanguage:${string}`
+  | `onUri:${string}`;
+
+/**
+ * Plugin contribution points
+ */
+export interface PluginContributions {
+  /** Command contributions */
+  commands?: CommandContribution[];
+  
+  /** View contributions */
+  views?: ViewContributions;
+  
+  /** Menu contributions */
+  menus?: MenuContributions;
+  
+  /** Route contributions (frontend) */
+  routes?: RouteContribution[];
+  
+  /** API route contributions (backend) */
+  api?: APIContributions;
+  
+  /** Configuration contributions */
+  configuration?: ConfigurationContribution[];
+}
+
+/**
+ * Command contribution
+ */
+export interface CommandContribution {
+  command: string;
+  title: string;
+  category?: string;
+  icon?: string;
+  enablement?: string;
+}
+
+/**
+ * View contributions
+ */
+export interface ViewContributions {
+  [containerId: string]: ViewContribution[];
+}
+
+export interface ViewContribution {
+  id: string;
+  name: string;
+  when?: string;
+}
+
+/**
+ * Menu contributions
+ */
+export interface MenuContributions {
+  [menuId: string]: MenuItemContribution[];
+}
+
+export interface MenuItemContribution {
+  command: string;
+  when?: string;
+  group?: string;
+}
+
+/**
+ * Route contribution (frontend)
+ */
+export interface RouteContribution {
+  path: string;
+  title: string;
+  icon?: string;
+  exact?: boolean;
+}
+
+/**
+ * API contributions (backend)
+ */
+export interface APIContributions {
+  basePath: string;
+  routes: APIRouteContribution[];
+}
+
+export interface APIRouteContribution {
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  path: string;
+  handler: string;
+  description?: string;
+}
+
+/**
+ * Configuration contribution
+ */
+export interface ConfigurationContribution {
+  title: string;
+  properties: Record<string, ConfigurationProperty>;
+}
+
+export interface ConfigurationProperty {
+  type: 'string' | 'number' | 'boolean' | 'array' | 'object';
+  default?: any;
+  description?: string;
+  enum?: any[];
+}
+
+/**
+ * Extended Plugin Context for modern plugins
+ */
+export interface ExtendedPluginContext extends PluginContext {
+  /** Environment: client or server */
+  environment: 'client' | 'server';
+  
+  /** Plugin manifest */
+  manifest: PluginManifest;
+  
+  /** Contribution registry */
+  contributions?: {
+    registerCommand?(id: string, handler: Function): void;
+    registerView?(id: string, view: any): void;
+    registerRoute?(route: RouteContribution): void;
+    registerAPIRoute?(route: APIRouteContribution): void;
+  };
+}
+
+/**
+ * Modern Plugin Interface
+ */
+export interface IModernPlugin extends Omit<IPlugin, 'activate'> {
+  /** Activate with environment context */
+  activatePlugin(context: ExtendedPluginContext): Promise<void> | void;
+  
+  /** Set manifest */
+  setManifest(manifest: PluginManifest): void;
+  
+  /** Get manifest */
+  getManifest(): PluginManifest | undefined;
 }

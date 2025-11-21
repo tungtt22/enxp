@@ -113,7 +113,7 @@ export class PlatformEventEmitter implements IEventEmitter {
 /**
  * Plugin Loader - loads plugins from filesystem
  */
-export class PluginLoader implements IPluginLoader {
+export class BasicPluginLoader implements IPluginLoader {
   constructor(
     private registry: IPluginRegistry,
     private logger: ILogger
@@ -131,8 +131,17 @@ export class PluginLoader implements IPluginLoader {
         throw new Error('Plugin must export a default class or Plugin class');
       }
 
-      // Instantiate the plugin
-      const plugin: IPlugin = new PluginClass();
+      // Check if it's already an instance or a class
+      let plugin: IPlugin;
+      if (typeof PluginClass === 'function') {
+        // It's a class, instantiate it
+        plugin = new PluginClass();
+      } else if (typeof PluginClass === 'object' && PluginClass.id) {
+        // It's already an instance
+        plugin = PluginClass;
+      } else {
+        throw new Error('Plugin must be a class or an instance with an id property');
+      }
 
       // Load metadata
       const metadataPath = pluginPath.replace(/\.js$/, '.json');
@@ -242,7 +251,7 @@ export class PlatformAPI implements IPlatformAPI {
  */
 export class PluginManager {
   private registry: PluginRegistry;
-  private loader: PluginLoader;
+  private loader: BasicPluginLoader;
   private events: PlatformEventEmitter;
   private logger: ILogger;
   private api: PlatformAPI;
@@ -252,7 +261,7 @@ export class PluginManager {
     this.registry = new PluginRegistry();
     this.events = new PlatformEventEmitter();
     this.api = new PlatformAPI(this.registry, config);
-    this.loader = new PluginLoader(this.registry, this.logger);
+    this.loader = new BasicPluginLoader(this.registry, this.logger);
   }
 
   /**
@@ -339,6 +348,19 @@ export class PluginManager {
   }
 
   /**
+   * Register a pre-loaded plugin (for external loaders like PluginLoader)
+   */
+  registerPlugin(plugin: IPlugin, metadata?: PluginMetadata): void {
+    this.registry.register(plugin, metadata || {
+      id: plugin.id,
+      name: plugin.name,
+      version: plugin.version,
+      type: 'backend',
+      dependencies: []
+    });
+  }
+
+  /**
    * Get the registry
    */
   getRegistry(): IPluginRegistry {
@@ -350,6 +372,13 @@ export class PluginManager {
    */
   getEvents(): IEventEmitter {
     return this.events;
+  }
+
+  /**
+   * Get the logger
+   */
+  getLogger(): ILogger {
+    return this.logger;
   }
 
   /**
