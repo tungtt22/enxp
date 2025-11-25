@@ -1,6 +1,7 @@
 import { Plugin, ExtendedPluginContext } from '@enxp/core';
-import { activateClient } from './client';
-import { activateServer } from './server';
+import manifest from '../plugin.json';
+import type { RouteDefinition } from '@enxp/frontend';
+import { ProjectsDashboard } from './client/ProjectsDashboard';
 
 /**
  * Projects Management Plugin
@@ -11,21 +12,44 @@ export class ProjectsPlugin extends Plugin {
     super('projects-management', 'Project Management', '1.0.0', {
       description: 'Manage projects with full CRUD operations',
     });
+    this.setManifest(manifest as any);
+  }
+
+  /**
+   * Register routes for frontend
+   */
+  registerRoutes(): RouteDefinition[] {
+    return [
+      {
+        path: '/projects',
+        component: ProjectsDashboard,
+        exact: true,
+        meta: {
+          title: 'Projects',
+          icon: '📁',
+        },
+      },
+    ];
   }
 
   /**
    * Activate based on environment
    */
   async activatePlugin(context: ExtendedPluginContext): Promise<void> {
-    context.logger.info(`Activating Projects plugin in ${context.environment} environment`);
+    context.logger.info(`Activating ${this.name} in ${context.environment} environment`);
+
+    // Add manifest to context for client/server activation
+    const contextWithManifest = { ...context, manifest: this.manifest };
 
     if (context.environment === 'server') {
-      await activateServer(context);
+      const { activateServer } = await import('./server');
+      await activateServer(contextWithManifest as ExtendedPluginContext);
     } else if (context.environment === 'client') {
-      await activateClient(context);
+      const { activateClient } = await import('./client');
+      await activateClient(contextWithManifest as ExtendedPluginContext);
     }
 
-    context.logger.info('Projects plugin activated successfully');
+    context.logger.info(`${this.name} activated successfully`);
   }
 
   /**

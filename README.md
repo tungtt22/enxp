@@ -29,9 +29,11 @@ A modern, plugin-based engineering platform with dynamic plugin system supportin
 - ✅ Backend server operational on port 3000
 - ✅ Frontend UI running on port 3001
 - ✅ Plugin system with VS Code-style architecture
-- ✅ 3 active plugins (Projects, Activity, Templates)
+- ✅ 4 active plugins (Projects, Activity, Templates, CICD)
 - ✅ All packages built successfully
 - ✅ Unified plugin structure with manifest-based loading
+- ✅ Auto-discovery of plugins (no manual registration)
+- ✅ CICD plugin with both frontend dashboard and backend API
 
 ## 🎯 Features
 
@@ -198,121 +200,303 @@ npm run dev:frontend
 ### Creating a New Plugin
 
 ```bash
-# Create a backend plugin
-npm run plugin create my-api-plugin -- --type backend --description "My API plugin"
+# Quick command (recommended)
+npm run create-plugin <name> <type>
 
-# Create a frontend plugin
-npm run plugin create my-widget -- --type frontend --description "My widget plugin"
+# Examples:
+npm run create-plugin auth-service backend
+npm run create-plugin dashboard frontend
+npm run create-plugin cicd backend  # Created sample CICD plugin
+npm run create-plugin utilities shared
 
-# Create a shared plugin
-npm run plugin create my-utils -- --type shared --description "Shared utilities"
+# Or using full CLI command:
+npm run plugin create <name> <type>
+
+# Note: After creating a plugin, the server will auto-discover 
+# and load it on next startup (no manual registration needed)
 ```
 
 ### Plugin Structure
 
-#### Backend Plugin
+All plugins follow a unified VS Code-style architecture:
+
+```
+my-plugin/
+├── plugin.json          # Plugin manifest (required)
+├── package.json         # NPM dependencies
+├── tsconfig.json        # TypeScript config
+├── vite.config.ts       # Build configuration
+├── README.md
+└── src/
+    ├── index.ts         # Main plugin class
+    ├── server/          # Server-side code (backend plugins)
+    │   └── index.ts
+    ├── client/          # Client-side code (frontend plugins)
+    │   └── index.ts
+    └── shared/          # Shared utilities (all plugins)
+        └── types.ts
+```
+
+### Quick Start Example
 
 ```typescript
-import { BackendPlugin } from '@enxp/backend';
+// src/index.ts - Main plugin class
+import { Plugin, ExtendedPluginContext } from '@enxp/core';
+import { activateServer } from './server';
+
+export class MyPlugin extends Plugin {
+  constructor() {
+    super('my-plugin', 'My Plugin', '1.0.0', {
+      description: 'My awesome plugin',
+    });
+  }
+
+  async activatePlugin(context: ExtendedPluginContext): Promise<void> {
+    if (context.environment === 'server') {
+      await activateServer(context);
+    }
+  }
+
+  getOpenAPISpec(): any {
+    return {
+      paths: {
+        '/hello': {
+          get: {
+            summary: 'Hello endpoint',
+            responses: {
+              '200': { description: 'Success' }
+            }
+          }
+        }
+      }
+    };
+  }
+}
+
+export default MyPlugin;
+```
+
+```typescript
+// src/server/index.ts - Server activation
+import { ExtendedPluginContext } from '@enxp/core';
 import { Router } from 'express';
 
-export default class MyAPIPlugin extends BackendPlugin {
-  constructor() {
-    super('my-api', 'My API', '1.0.0', {
-      description: 'My API plugin',
-    });
-  }
+export function activateServer(context: ExtendedPluginContext): void {
+  const router = Router();
 
-  async onInitialize(): Promise<void> {
-    this.log('info', 'Initializing MyAPI plugin');
-  }
+  router.get('/hello', async (req, res) => {
+    res.json({ success: true, message: 'Hello!' });
+  });
 
-  registerRoutes(router: Router): void {
-    router.get('/users', async (req, res) => {
-      res.json({ users: [] });
-    });
-
-    router.post('/users', async (req, res) => {
-      res.json({ success: true });
-    });
-  }
-
-  registerMiddleware(app: any): void {
-    // Add custom middleware
-  }
+  const basePath = `/api/plugins/${context.manifest.id}`;
+  context.events.emit('plugin:register-router', {
+    pluginId: context.manifest.id,
+    basePath,
+    router,
+  });
 }
 ```
 
-#### Frontend Plugin
+### Building & Testing
+
+```bash
+# Build the plugin
+npm run build:plugins
+
+# Start server (auto-discovers all plugins in plugins/ folder)
+npm run dev:backend
+
+# Your plugin will be automatically:
+# - Discovered from plugins/ directory
+# - Loaded using plugin.json manifest
+# - Activated based on activationEvents
+# - Registered with endpoints at /api/plugins/your-plugin-id/*
+```
+
+### Real Example: CICD Plugin
+
+The CICD plugin is a complete example showing best practices:
+
+```bash
+# Created using CLI
+npm run create-plugin cicd backend
+
+# Features implemented:
+# - Full CRUD for pipelines (GET, POST, GET /:id)
+# - Pipeline execution triggering (POST /:id/run)
+# - Execution history (GET /executions)
+# - Statistics aggregation (GET /stats)
+# - OpenAPI/Swagger documentation
+# - Mock data for testing
+
+# Endpoints available at:
+# GET    /api/plugins/cicd/pipelines
+# POST   /api/plugins/cicd/pipelines
+# GET    /api/plugins/cicd/pipelines/:id
+# POST   /api/plugins/cicd/pipelines/:id/run
+# GET    /api/plugins/cicd/executions
+# GET    /api/plugins/cicd/stats
+```
+
+**Key Code Snippets:**
 
 ```typescript
-import React from 'react';
-import { FrontendPlugin, RouteDefinition, MenuItem } from '@enxp/frontend';
-
-export default class MyWidgetPlugin extends FrontendPlugin {
-  constructor() {
-    super('my-widget', 'My Widget', '1.0.0', {
-      description: 'My widget plugin',
-    });
-  }
-
-  registerRoutes(): RouteDefinition[] {
-    return [
-      {
-        path: '/my-widget',
-        component: this.WidgetComponent,
-        meta: { title: 'My Widget' },
-      },
-    ];
-  }
-
-  registerMenuItems(): MenuItem[] {
-    return [
-      {
-        id: 'my-widget',
-        label: 'My Widget',
-        path: '/my-widget',
-        order: 100,
-      },
-    ];
-  }
-
-  private WidgetComponent: React.FC = () => {
-    return (
-      <div>
-        <h1>My Widget</h1>
-        <p>This is my custom widget!</p>
-      </div>
-    );
+// plugins/cicd/src/index.ts - OpenAPI spec
+getOpenAPISpec(): any {
+  return {
+    tags: [{ name: 'cicd', description: 'CI/CD Pipeline Management' }],
+    paths: {
+      '/pipelines': {
+        get: {
+          tags: ['cicd'],
+          summary: 'Get all pipelines',
+          parameters: [
+            {
+              name: 'status',
+              in: 'query',
+              schema: { type: 'string', enum: ['success', 'failed', 'running', 'pending'] }
+            }
+          ],
+          responses: {
+            '200': {
+              description: 'List of pipelines',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean' },
+                      data: {
+                        type: 'array',
+                        items: {
+                          type: 'object',
+                          properties: {
+                            id: { type: 'number' },
+                            name: { type: 'string' },
+                            repository: { type: 'string' },
+                            branch: { type: 'string' },
+                            status: { type: 'string' },
+                            lastRun: { type: 'string', format: 'date-time' },
+                            duration: { type: 'number' }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   };
 }
 ```
 
-### Building a Plugin
+```typescript
+// plugins/cicd/src/server/index.ts - Route handlers
+router.get('/pipelines', async (req, res) => {
+  const { status } = req.query;
+  
+  let filteredPipelines = mockPipelines;
+  if (status) {
+    filteredPipelines = mockPipelines.filter(p => p.status === status);
+  }
+  
+  res.json({ success: true, data: filteredPipelines });
+});
 
-```bash
-# Build a specific plugin
-npm run plugin build my-api-plugin
-
-# Build all plugins
-npm run plugin build
-
-# Development mode with watch
-npm run plugin dev my-api-plugin
+router.post('/pipelines/:id/run', async (req, res) => {
+  const { id } = req.params;
+  const pipeline = mockPipelines.find(p => p.id === Number(id));
+  
+  if (!pipeline) {
+    return res.status(404).json({ success: false, error: 'Pipeline not found' });
+  }
+  
+  const executionId = mockExecutions.length + 1;
+  mockExecutions.push({
+    id: executionId,
+    pipelineId: Number(id),
+    status: 'running',
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    duration: 0,
+    logs: 'Starting pipeline execution...'
+  });
+  
+  res.json({ success: true, message: 'Pipeline triggered', executionId });
+});
 ```
 
-### Installing a Plugin
+Test the CICD plugin:
 
 ```bash
-# Install a local plugin
-npm run plugin install ./plugins/my-api-plugin
+# Backend API tests
+curl http://localhost:3000/api/plugins/cicd/pipelines
+curl http://localhost:3000/api/plugins/cicd/pipelines?status=running
+curl -X POST http://localhost:3000/api/plugins/cicd/pipelines \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Test Pipeline","repository":"https://github.com/test/repo","branch":"main"}'
+curl -X POST http://localhost:3000/api/plugins/cicd/pipelines/1/run
+curl http://localhost:3000/api/plugins/cicd/executions
+curl http://localhost:3000/api/plugins/cicd/stats
 
-# List installed plugins
-npm run plugin list
-
-# Uninstall a plugin
-npm run plugin uninstall my-api-plugin
+# Frontend UI
+# Navigate to http://localhost:3001/cicd
+# - View pipeline dashboard with statistics
+# - See list of all pipelines
+# - Trigger pipeline executions
+# - Monitor pipeline status in real-time
 ```
+
+**CICD Plugin Features:**
+- 🎯 **Unified Plugin**: Works in both backend (API) and frontend (UI)
+- 📊 **Dashboard**: Interactive UI with Ant Design components
+- 📈 **Statistics**: Real-time stats (success rate, avg duration, total executions)
+- 🚀 **Pipeline Management**: Create, view, and trigger pipelines
+- 📝 **Execution History**: Track all pipeline runs
+- 🔄 **Status Filtering**: Filter pipelines by status (running/success/failed/pending)
+- 📡 **RESTful API**: Complete CRUD operations
+- 📚 **OpenAPI Docs**: Full Swagger documentation
+
+The frontend automatically discovers the CICD plugin and adds it to the navigation menu with the 🚀 icon.
+
+```bash
+cd plugins/my-plugin
+
+# Install dependencies
+npm install
+
+# Build plugin
+npm run build
+
+# Development mode (watch)
+npm run dev
+```
+
+### Plugin Manifest (plugin.json)
+
+```json
+{
+  "id": "my-plugin",
+  "name": "my-plugin",
+  "displayName": "My Plugin",
+  "version": "1.0.0",
+  "description": "My awesome plugin",
+  "publisher": "your-name",
+  "main": "./dist/index.js",
+  "activationEvents": ["onStartup"],
+  "contributes": {
+    "api": {
+      "basePath": "/api/plugins/my-plugin"
+    }
+  }
+}
+```
+
+For detailed plugin development guide, see [docs/PLUGIN_DEVELOPMENT.md](docs/PLUGIN_DEVELOPMENT.md)
 
 ## 📚 Plugin Capabilities
 

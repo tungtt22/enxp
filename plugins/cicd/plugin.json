@@ -1,0 +1,44 @@
+{
+  "id": "cicd",
+  "name": "cicd",
+  "displayName": "CI/CD Management",
+  "version": "1.0.0",
+  "description": "CI/CD Pipeline Management Plugin",
+  "publisher": "ENXP Team",
+  "main": "./dist/index.js",
+  "activationEvents": [
+    "onStartup"
+  ],
+  "contributes": {
+    "api": {
+      "basePath": "/api/plugins/cicd"
+    },
+    "routes": [
+      {
+        "path": "/cicd",
+        "title": "CI/CD",
+        "icon": "🚀",
+        "exact": true
+      }
+    ],
+    "menus": [
+      {
+        "id": "cicd-menu",
+        "label": "CI/CD",
+        "icon": "🚀",
+        "path": "/cicd",
+        "order": 15
+      }
+    ],
+    "commands": [
+      {
+        "command": "cicd.runPipeline",
+        "title": "Run Pipeline"
+      },
+      {
+        "command": "cicd.viewExecutions",
+        "title": "View Executions"
+      }
+    ]
+  }
+}

@@ -1,5 +1,6 @@
 import { BackendServer } from './packages/backend/src';
 import path from 'path';
+import fs from 'fs/promises';
 
 async function main() {
   console.log('🚀 Starting ENXP Platform...\n');
@@ -14,23 +15,30 @@ async function main() {
   console.log('📦 Loading backend plugins...\n');
   
   try {
-    // Load Projects Management Plugin
-    const projectsManagementPath = path.join(__dirname, 'plugins/projects-management');
-    await server.loadPlugin(projectsManagementPath);
-    await server.activatePlugin('projects-management');
-    console.log('✅ Projects Management Plugin loaded');
-
-    // Load Activity Management Plugin
-    const activityManagementPath = path.join(__dirname, 'plugins/activity-management');
-    await server.loadPlugin(activityManagementPath);
-    await server.activatePlugin('activity-management');
-    console.log('✅ Activity Management Plugin loaded');
-
-    // Load Templates Management Plugin
-    const templatesManagementPath = path.join(__dirname, 'plugins/templates-management');
-    await server.loadPlugin(templatesManagementPath);
-    await server.activatePlugin('templates-management');
-    console.log('✅ Templates Management Plugin loaded');
+    // Auto-scan and load all plugins from plugins/ folder
+    const pluginsDir = path.join(__dirname, 'plugins');
+    const pluginFolders = await fs.readdir(pluginsDir);
+    
+    for (const folder of pluginFolders) {
+      const pluginPath = path.join(pluginsDir, folder);
+      const stat = await fs.stat(pluginPath);
+      
+      if (!stat.isDirectory()) continue;
+      
+      // Check if plugin.json exists
+      const manifestPath = path.join(pluginPath, 'plugin.json');
+      try {
+        await fs.access(manifestPath);
+        
+        // Load and activate plugin
+        await server.loadPlugin(pluginPath);
+        const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8'));
+        await server.activatePlugin(manifest.id);
+        console.log(`✅ ${manifest.name} Plugin loaded`);
+      } catch (err) {
+        console.warn(`⚠️  Skipping ${folder}: No valid plugin.json`);
+      }
+    }
 
   } catch (error) {
     console.error('❌ Failed to load plugins:', error);

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { PluginManager } from '@enxp/core';
 import { PluginProvider, usePluginRoutes } from '@enxp/frontend';
@@ -15,15 +15,18 @@ const TemplatesPage = lazy(() => import('./pages/TemplatesPage'));
 const ActivityPage = lazy(() => import('./pages/ActivityPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
-// Loading fallback component
+// Loading fallback component  
 const PageLoader = () => (
   <div style={{ 
     display: 'flex', 
     justifyContent: 'center', 
     alignItems: 'center', 
-    minHeight: '400px' 
+    minHeight: '400px',
+    flexDirection: 'column',
+    gap: '16px'
   }}>
-    <Spin size="large" tip="Loading..." />
+    <Spin size="large" />
+    <div>Loading...</div>
   </div>
 );
 
@@ -44,20 +47,68 @@ const NotFound = () => (
 // Initialize plugin manager singleton
 const pluginManager = new PluginManager();
 
-// Plugin registration (ready for future use)
-const registerPlugins = async () => {
-  try {
-    // const registry = pluginManager.getRegistry();
-    // Register your plugins here
-    // Example:
-    // await registry.registerPlugin(myPlugin);
-  } catch (error) {
-    console.error('Failed to register plugins:', error);
-  }
-};
+// Import plugins (use named exports)
+import { ProjectsPlugin } from '../../plugins/projects-management/dist/index';
+import { ActivityPlugin } from '../../plugins/activity-management/dist/index';
+import { TemplatesPlugin } from '../../plugins/templates-management/dist/index';
+import { CicdPlugin } from '../../plugins/cicd/dist/index';
 
-// Uncomment when plugins are ready
-// registerPlugins();
+/**
+ * Create plugin context for client environment
+ */
+function createClientContext() {
+  return {
+    logger: { 
+      debug: console.debug, 
+      info: console.info, 
+      warn: console.warn, 
+      error: console.error 
+    },
+    events: pluginManager.getEvents(),
+    config: { enabled: true, settings: {} },
+    registry: pluginManager.getRegistry(),
+    api: pluginManager.getAPI(),
+    environment: 'client' as const,
+  };
+}
+
+/**
+ * Load all plugins
+ */
+async function loadPlugins() {
+  const registry = pluginManager.getRegistry();
+  const plugins = [
+    new ProjectsPlugin(),
+    new ActivityPlugin(),
+    new TemplatesPlugin(),
+    new CicdPlugin(),
+  ];
+
+  for (const plugin of plugins) {
+    try {
+      // Skip if already registered (React StrictMode double-call protection)
+      if (registry.has(plugin.id)) {
+        console.log(`⏭️  Plugin ${plugin.id} already registered`);
+        continue;
+      }
+
+      registry.register(plugin, {
+        id: plugin.id,
+        name: plugin.name,
+        version: plugin.version,
+        type: 'shared',
+        dependencies: plugin.dependencies || []
+      });
+
+      const context = createClientContext();
+      await plugin.initialize(context);
+      await plugin.activate();
+      console.log(`✅ Loaded plugin: ${plugin.id}`);
+    } catch (error) {
+      console.warn(`⚠️  Failed to load plugin ${plugin.id}:`, error);
+    }
+  }
+}
 
 /**
  * AppContent - Main routing component
@@ -97,6 +148,20 @@ function AppContent() {
  * App - Root component
  */
 function App() {
+  const [pluginsLoaded, setPluginsLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadPlugins().then(() => {
+      if (!cancelled) setPluginsLoaded(true);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!pluginsLoaded) {
+    return <PageLoader />;
+  }
+
   return (
     <ErrorBoundary>
       <BrowserRouter>

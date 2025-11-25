@@ -53,48 +53,120 @@ export class PluginGenerator {
     options: PluginOptions
   ): Promise<void> {
     const srcDir = path.join(pluginPath, 'src');
+    const serverDir = path.join(srcDir, 'server');
     await fs.ensureDir(srcDir);
+    await fs.ensureDir(serverDir);
+
+    // Generate plugin manifest
+    const manifest = {
+      id: pluginId,
+      name: pluginId,
+      displayName: className,
+      version: '1.0.0',
+      description: options.description || 'A backend plugin',
+      publisher: options.author || 'ENXP',
+      main: './dist/index.js',
+      activationEvents: ['onStartup'],
+      contributes: {
+        api: {
+          basePath: `/api/plugins/${pluginId}`
+        }
+      }
+    };
+
+    await fs.writeJSON(path.join(pluginPath, 'plugin.json'), manifest, { spaces: 2 });
 
     // Generate main plugin file
-    const pluginContent = `import { BackendPlugin } from '@enxp/backend';
+    const pluginContent = `import { Plugin, ExtendedPluginContext } from '@enxp/core';
+import { activateServer } from './server';
+
+/**
+ * ${className} Plugin
+ */
+export class ${className}Plugin extends Plugin {
+  constructor() {
+    super('${pluginId}', '${className}', '1.0.0', {
+      description: '${options.description || 'A backend plugin'}',
+    });
+  }
+
+  async activatePlugin(context: ExtendedPluginContext): Promise<void> {
+    context.logger.info(\`Activating \${this.name} in \${context.environment} environment\`);
+
+    if (context.environment === 'server') {
+      await activateServer(context);
+    }
+
+    context.logger.info(\`\${this.name} activated successfully\`);
+  }
+
+  /**
+   * OpenAPI specification for Swagger documentation
+   */
+  getOpenAPISpec(): any {
+    return {
+      paths: {
+        '/hello': {
+          get: {
+            summary: 'Hello endpoint',
+            description: 'Returns a greeting message',
+            responses: {
+              '200': {
+                description: 'Successful response',
+                content: {
+                  'application/json': {
+                    schema: {
+                      type: 'object',
+                      properties: {
+                        success: { type: 'boolean', example: true },
+                        message: { type: 'string', example: 'Hello from ${className}!' }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+  }
+}
+
+export default ${className}Plugin;
+`;
+
+    // Generate server activation file
+    const serverContent = `import { ExtendedPluginContext } from '@enxp/core';
 import { Router } from 'express';
 
-export default class ${className}Plugin extends BackendPlugin {
-  constructor() {
-    super(
-      '${pluginId}',
-      '${className}',
-      '1.0.0',
-      {
-        description: '${options.description || 'A backend plugin'}',
-      }
-    );
-  }
+export function activateServer(context: ExtendedPluginContext): void {
+  const router = Router();
 
-  async onInitialize(): Promise<void> {
-    this.log('info', 'Initializing ${className} plugin');
-  }
-
-  async onActivate(): Promise<void> {
-    this.log('info', '${className} plugin activated');
-  }
-
-  registerRoutes(router: Router): void {
-    // Example route
-    router.get('/hello', (req, res) => {
-      res.json({ message: 'Hello from ${className} plugin!' });
+  // Example route
+  router.get('/hello', async (req, res) => {
+    res.json({ 
+      success: true,
+      message: 'Hello from ${className}!' 
     });
+  });
 
-    // Add your routes here
-  }
+  // Get basePath from manifest
+  const basePath = context.manifest.contributes?.api?.basePath || \`/api/plugins/\${context.manifest.id}\`;
 
-  registerMiddleware(app: any): void {
-    // Register middleware if needed
-  }
+  // Register router with the platform
+  context.events.emit('plugin:register-router', {
+    pluginId: context.manifest.id,
+    basePath,
+    router,
+  });
+
+  context.logger.info(\`Registered API routes at \${basePath}\`);
 }
 `;
 
     await fs.writeFile(path.join(srcDir, 'index.ts'), pluginContent);
+    await fs.writeFile(path.join(serverDir, 'index.ts'), serverContent);
   }
 
   private async generateFrontendPlugin(
@@ -104,67 +176,74 @@ export default class ${className}Plugin extends BackendPlugin {
     options: PluginOptions
   ): Promise<void> {
     const srcDir = path.join(pluginPath, 'src');
+    const clientDir = path.join(srcDir, 'client');
     await fs.ensureDir(srcDir);
+    await fs.ensureDir(clientDir);
+
+    // Generate plugin manifest
+    const manifest = {
+      id: pluginId,
+      name: pluginId,
+      displayName: className,
+      version: '1.0.0',
+      description: options.description || 'A frontend plugin',
+      publisher: options.author || 'ENXP',
+      main: './dist/index.js',
+      activationEvents: ['onStartup'],
+      contributes: {
+        views: [
+          {
+            id: `${pluginId}-view`,
+            name: className,
+            icon: '🎨'
+          }
+        ]
+      }
+    };
+
+    await fs.writeJSON(path.join(pluginPath, 'plugin.json'), manifest, { spaces: 2 });
 
     // Generate main plugin file
-    const pluginContent = `import React from 'react';
-import { FrontendPlugin, RouteDefinition, MenuItem } from '@enxp/frontend';
+    const pluginContent = `import { Plugin, ExtendedPluginContext } from '@enxp/core';
+import { activateClient } from './client';
 
-export default class ${className}Plugin extends FrontendPlugin {
+/**
+ * ${className} Plugin
+ */
+export class ${className}Plugin extends Plugin {
   constructor() {
-    super(
-      '${pluginId}',
-      '${className}',
-      '1.0.0',
-      {
-        description: '${options.description || 'A frontend plugin'}',
-      }
-    );
+    super('${pluginId}', '${className}', '1.0.0', {
+      description: '${options.description || 'A frontend plugin'}',
+    });
   }
 
-  async onInitialize(): Promise<void> {
-    this.log('info', 'Initializing ${className} plugin');
-  }
+  async activatePlugin(context: ExtendedPluginContext): Promise<void> {
+    context.logger.info(\`Activating \${this.name} in \${context.environment} environment\`);
 
-  async onActivate(): Promise<void> {
-    this.log('info', '${className} plugin activated');
-  }
+    if (context.environment === 'client') {
+      await activateClient(context);
+    }
 
-  registerRoutes(): RouteDefinition[] {
-    return [
-      {
-        path: '/${pluginId}',
-        component: this.MainComponent,
-        meta: {
-          title: '${className}',
-        },
-      },
-    ];
+    context.logger.info(\`\${this.name} activated successfully\`);
   }
+}
 
-  registerMenuItems(): MenuItem[] {
-    return [
-      {
-        id: '${pluginId}',
-        label: '${className}',
-        path: '/${pluginId}',
-        order: 100,
-      },
-    ];
-  }
+export default ${className}Plugin;
+`;
 
-  private MainComponent: React.FC = () => {
-    return (
-      <div>
-        <h1>${className} Plugin</h1>
-        <p>This is a frontend plugin.</p>
-      </div>
-    );
-  };
+    // Generate client activation file
+    const clientContent = `import { ExtendedPluginContext } from '@enxp/core';
+
+export function activateClient(context: ExtendedPluginContext): void {
+  context.logger.info('Client-side plugin activated');
+  
+  // Register UI components, routes, etc.
+  // Example: context.ui.registerComponent('${className}Component', ${className}Component);
 }
 `;
 
-    await fs.writeFile(path.join(srcDir, 'index.tsx'), pluginContent);
+    await fs.writeFile(path.join(srcDir, 'index.ts'), pluginContent);
+    await fs.writeFile(path.join(clientDir, 'index.ts'), clientContent);
   }
 
   private async generateSharedPlugin(
@@ -174,34 +253,62 @@ export default class ${className}Plugin extends FrontendPlugin {
     options: PluginOptions
   ): Promise<void> {
     const srcDir = path.join(pluginPath, 'src');
+    const sharedDir = path.join(srcDir, 'shared');
     await fs.ensureDir(srcDir);
+    await fs.ensureDir(sharedDir);
 
-    const pluginContent = `import { BasePlugin } from '@enxp/core';
+    // Generate plugin manifest
+    const manifest = {
+      id: pluginId,
+      name: pluginId,
+      displayName: className,
+      version: '1.0.0',
+      description: options.description || 'A shared plugin',
+      publisher: options.author || 'ENXP',
+      main: './dist/index.js',
+      activationEvents: ['onStartup']
+    };
 
-export default class ${className}Plugin extends BasePlugin {
+    await fs.writeJSON(path.join(pluginPath, 'plugin.json'), manifest, { spaces: 2 });
+
+    const pluginContent = `import { Plugin, ExtendedPluginContext } from '@enxp/core';
+
+/**
+ * ${className} Plugin
+ * Shared utilities and types
+ */
+export class ${className}Plugin extends Plugin {
   constructor() {
-    super(
-      '${pluginId}',
-      '${className}',
-      '1.0.0',
-      'shared',
-      {
-        description: '${options.description || 'A shared plugin'}',
-      }
-    );
+    super('${pluginId}', '${className}', '1.0.0', {
+      description: '${options.description || 'A shared plugin'}',
+    });
   }
 
-  async onInitialize(): Promise<void> {
-    this.log('info', 'Initializing ${className} plugin');
+  async activatePlugin(context: ExtendedPluginContext): Promise<void> {
+    context.logger.info(\`Activating \${this.name}\`);
+    
+    // Register shared utilities, types, or helpers
+    
+    context.logger.info(\`\${this.name} activated successfully\`);
   }
+}
 
-  async onActivate(): Promise<void> {
-    this.log('info', '${className} plugin activated');
-  }
+export default ${className}Plugin;
+`;
+
+    // Generate shared types file
+    const typesContent = `/**
+ * Shared types for ${className} plugin
+ */
+
+export interface Example {
+  id: number;
+  name: string;
 }
 `;
 
     await fs.writeFile(path.join(srcDir, 'index.ts'), pluginContent);
+    await fs.writeFile(path.join(sharedDir, 'types.ts'), typesContent);
   }
 
   private async generateCommonFiles(
@@ -212,7 +319,7 @@ export default class ${className}Plugin extends BasePlugin {
   ): Promise<void> {
     // package.json
     const packageJson = {
-      name: `@enxp-plugin/${pluginId}`,
+      name: `@enxp/plugin-${pluginId}`,
       version: '1.0.0',
       description: options.description || `${className} plugin`,
       main: 'dist/index.js',
@@ -223,12 +330,16 @@ export default class ${className}Plugin extends BasePlugin {
         clean: 'rm -rf dist',
       },
       dependencies: {
-        '@enxp/core': '^1.0.0',
-        ...(options.type === 'backend' ? { '@enxp/backend': '^1.0.0' } : {}),
-        ...(options.type === 'frontend' ? { '@enxp/frontend': '^1.0.0' } : {}),
+        '@enxp/core': 'workspace:*',
+        ...(options.type === 'backend' ? { 
+          'express': '^4.18.2',
+          'react-router-dom': '^6.20.0'
+        } : {}),
       },
       devDependencies: {
-        typescript: '^5.3.2',
+        '@types/node': '^20.0.0',
+        ...(options.type === 'backend' ? { '@types/express': '^4.17.17' } : {}),
+        typescript: '^5.0.0',
       },
       author: options.author || '',
       license: 'MIT',
@@ -241,8 +352,7 @@ export default class ${className}Plugin extends BasePlugin {
       extends: '../../tsconfig.json',
       compilerOptions: {
         outDir: './dist',
-        rootDir: './src',
-        ...(options.type === 'frontend' ? { jsx: 'react' } : {}),
+        composite: false
       },
       include: ['src/**/*'],
       exclude: ['node_modules', 'dist'],
@@ -250,33 +360,122 @@ export default class ${className}Plugin extends BasePlugin {
 
     await fs.writeJSON(path.join(pluginPath, 'tsconfig.json'), tsConfig, { spaces: 2 });
 
-    // README.md
-    const readme = `# ${className} Plugin
+    // vite.config.ts (for build configuration)
+    const viteConfig = `import { defineConfig } from 'vite';
+import path from 'path';
+import fs from 'fs';
 
-${options.description || 'A plugin for ENXP platform'}
+// Read plugin manifest
+const pluginManifest = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, './plugin.json'), 'utf-8')
+);
 
-## Installation
+const port = parseInt(process.env.PORT || '4001');
 
-\`\`\`bash
-npm install
-npm run build
-\`\`\`
-
-## Development
-
-\`\`\`bash
-npm run dev
-\`\`\`
-
-## Usage
-
-This is a ${options.type} plugin that provides...
-
-## API
-
-Document your plugin's API here.
+export default defineConfig({
+  plugins: [],
+  server: {
+    port,
+    host: true,
+    cors: true,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+    },
+    proxy: {
+      '/api': {
+        target: process.env.API_TARGET || 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
+  build: {
+    lib: {
+      entry: path.resolve(__dirname, 'src/index.ts'),
+      formats: ['es'],
+      fileName: 'index',
+    },
+    rollupOptions: {
+      external: ['express', '@enxp/core'],
+    },
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@enxp/core': path.resolve(__dirname, '../../packages/core/src/index.ts'),
+      '@enxp/frontend': path.resolve(__dirname, '../../packages/frontend/src/index.ts'),
+    },
+  },
+  optimizeDeps: {
+    exclude: ['@enxp/core', '@enxp/frontend'],
+  },
+});
 `;
 
+    await fs.writeFile(path.join(pluginPath, 'vite.config.ts'), viteConfig);
+
+    // README.md
+    const readmeLines = [
+      `# ${className} Plugin`,
+      '',
+      options.description || 'A plugin for ENXP platform',
+      '',
+      '## Installation',
+      '',
+      '```bash',
+      'npm install',
+      'npm run build',
+      '```',
+      '',
+      '## Development',
+      '',
+      '```bash',
+      'npm run dev',
+      '```',
+      '',
+      `## Usage`,
+      '',
+      `This is a ${options.type} plugin that provides...`,
+      ''
+    ];
+
+    if (options.type === 'backend') {
+      readmeLines.push(
+        '## API Endpoints',
+        '',
+        `- \`GET /api/plugins/${pluginId}/hello\` - Example endpoint`,
+        '',
+        '## Swagger Documentation',
+        '',
+        'API documentation is available at `http://localhost:3000/api-docs`',
+        ''
+      );
+    }
+
+    readmeLines.push(
+      '## Structure',
+      '',
+      '```',
+      `${pluginId}/`,
+      '├── plugin.json          # Plugin manifest',
+      '├── package.json',
+      '├── tsconfig.json',
+      '├── vite.config.ts',
+      '└── src/',
+      '    ├── index.ts         # Main plugin class'
+    );
+
+    if (options.type === 'backend') {
+      readmeLines.push('    └── server/         # Server-side code');
+    } else if (options.type === 'frontend') {
+      readmeLines.push('    └── client/         # Client-side code');
+    } else if (options.type === 'shared') {
+      readmeLines.push('    └── shared/         # Shared utilities');
+    }
+
+    readmeLines.push('```');
+
+    const readme = readmeLines.join('\n');
     await fs.writeFile(path.join(pluginPath, 'README.md'), readme);
 
     // .gitignore
@@ -284,6 +483,8 @@ Document your plugin's API here.
 dist/
 *.log
 .DS_Store
+.env
+.env.local
 `;
 
     await fs.writeFile(path.join(pluginPath, '.gitignore'), gitignore);

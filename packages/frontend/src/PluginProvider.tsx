@@ -24,11 +24,11 @@ export const PluginProvider: React.FC<{
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load frontend plugins
+    // Load frontend and shared plugins
     const loadPlugins = () => {
       const frontendPlugins = pluginManager
         .getPlugins()
-        .filter((p) => p.type === 'frontend') as FrontendPlugin[];
+        .filter((p) => p.type === 'frontend' || p.type === 'shared') as FrontendPlugin[];
       setPlugins(frontendPlugins);
       setLoading(false);
     };

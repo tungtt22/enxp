@@ -1,23 +1,47 @@
 import { Plugin, ExtendedPluginContext } from '@enxp/core';
-import { activateServer } from './server';
-import { activateClient } from './client';
+import manifest from '../plugin.json';
+import type { RouteDefinition } from '@enxp/frontend';
+import { ActivityDashboard } from './client/ActivityDashboard';
 
 export class ActivityPlugin extends Plugin {
   constructor() {
     super('activity-management', 'Activity Management', '1.0.0', {
-      description: 'Activity tracking and monitoring plugin',
+      description: 'Activity tracking and management plugin',
     });
+    this.setManifest(manifest as any);
+  }
+
+  /**
+   * Register routes for frontend
+   */
+  registerRoutes(): RouteDefinition[] {
+    return [
+      {
+        path: '/activity',
+        component: ActivityDashboard,
+        exact: true,
+        meta: {
+          title: 'Activity',
+          icon: '📊',
+        },
+      },
+    ];
   }
 
   async activatePlugin(context: ExtendedPluginContext): Promise<void> {
     context.logger.info('Activating Activity Management Plugin...');
 
+    // Add manifest to context for client/server activation
+    const contextWithManifest = { ...context, manifest: this.manifest };
+
     if (this.isServer(context)) {
-      activateServer(context);
+      const { activateServer } = await import('./server');
+      activateServer(contextWithManifest as ExtendedPluginContext);
     }
 
     if (this.isClient(context)) {
-      activateClient(context);
+      const { activateClient } = await import('./client');
+      activateClient(contextWithManifest as ExtendedPluginContext);
     }
   }
 

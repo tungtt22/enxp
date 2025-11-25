@@ -1,0 +1,11 @@
+theme: jekyll-theme-cayman
+title: ENXP Platform
+description: Modern micro frontend platform with extensible plugin architecture
+show_downloads: true
+google_analytics: 
+plugins:
+  - jekyll-mentions
+  - jemoji
+  - jekyll-redirect-from
+  - jekyll-sitemap
+  - jekyll-feed

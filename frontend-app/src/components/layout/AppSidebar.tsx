@@ -7,8 +7,10 @@ import {
   FileTextOutlined,
   ClockCircleOutlined,
   SettingOutlined,
+  RocketOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { usePluginContext } from '@enxp/frontend';
 
 const { Sider } = Layout;
 
@@ -22,32 +24,38 @@ const MENU_ITEMS = [
     key: '/',
     icon: <HomeOutlined />,
     label: 'Home',
+    order: 0,
   },
   {
     key: '/projects',
     icon: <FolderOutlined />,
     label: 'Projects',
+    order: 10,
   },
   {
     key: '/templates',
     icon: <FileTextOutlined />,
     label: 'Templates',
+    order: 20,
   },
   {
     key: '/activity',
     icon: <ClockCircleOutlined />,
     label: 'Activity',
+    order: 30,
   },
   {
     key: '/settings',
     icon: <SettingOutlined />,
     label: 'Settings',
+    order: 100,
   },
 ] as const;
 
 const AppSidebar = memo<AppSidebarProps>(({ collapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { pluginManager } = usePluginContext();
 
   const handleMenuClick = useCallback<NonNullable<MenuProps['onClick']>>(
     ({ key }) => {
@@ -55,6 +63,37 @@ const AppSidebar = memo<AppSidebarProps>(({ collapsed }) => {
     },
     [navigate]
   );
+
+  // Get plugin menu items from manifests
+  const pluginMenuItems = useMemo(() => {
+    const items: Array<{ key: string; icon: any; label: string; order: number }> = [];
+    const plugins = pluginManager.getPlugins();
+    
+    plugins.forEach(plugin => {
+      const manifest = (plugin as any).getManifest?.();
+      if (manifest?.contributes?.menus) {
+        manifest.contributes.menus.forEach((menu: any) => {
+          items.push({
+            key: menu.path,
+            icon: <RocketOutlined />,
+            label: menu.label,
+            order: menu.order || 50,
+          });
+        });
+      }
+    });
+    
+    return items;
+  }, [pluginManager]);
+
+  // Combine static and plugin menu items and sort by order
+  const allMenuItems = useMemo(() => {
+    const combined = [
+      ...(MENU_ITEMS as any),
+      ...pluginMenuItems,
+    ];
+    return combined.sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [pluginMenuItems]);
 
   const siderStyle = useMemo(
     () => ({
@@ -91,7 +130,7 @@ const AppSidebar = memo<AppSidebarProps>(({ collapsed }) => {
         theme="dark"
         mode="inline"
         selectedKeys={[location.pathname]}
-        items={MENU_ITEMS}
+        items={allMenuItems}
         onClick={handleMenuClick}
         style={{ borderRight: 0 }}
       />
