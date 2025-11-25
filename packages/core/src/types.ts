@@ -100,6 +100,19 @@ export enum PluginState {
 }
 
 /**
+ * Plugin specific error with code for better diagnostics
+ */
+export class PluginError extends Error {
+  public readonly code: string;
+  public readonly pluginId?: string;
+  constructor(message: string, code: string = 'PLUGIN_ERROR', pluginId?: string) {
+    super(message);
+    this.code = code;
+    this.pluginId = pluginId;
+  }
+}
+
+/**
  * Plugin registry interface
  */
 export interface IPluginRegistry {

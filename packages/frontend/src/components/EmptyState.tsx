@@ -1,4 +1,4 @@
-import React, { CSSProperties } from 'react';
+import React, { CSSProperties, useMemo } from 'react';
 
 interface EmptyStateProps {
   icon?: string;
@@ -10,25 +10,24 @@ interface EmptyStateProps {
   };
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({
-  icon = '📭',
-  title,
-  description,
-  action
-}) => {
+export function EmptyState({ icon = '📭', title, description, action }: EmptyStateProps) {
+  const containerStyle = styles.container;
+  const buttonStyle = useMemo(() => styles.button, []);
   return (
-    <div style={styles.container}>
+    <div style={containerStyle}>
       <div style={styles.icon}>{icon}</div>
       <h3 style={styles.title}>{title}</h3>
       {description && <p style={styles.description}>{description}</p>}
       {action && (
-        <button style={styles.button} onClick={action.onClick}>
+        <button style={buttonStyle} onClick={action.onClick}>
           {action.label}
         </button>
       )}
     </div>
   );
-};
+}
+
+EmptyState.displayName = 'EmptyState';
 
 const styles: Record<string, CSSProperties> = {
   container: {

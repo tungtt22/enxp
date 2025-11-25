@@ -10,7 +10,7 @@ export class ActivityPlugin extends Plugin {
   }
 
   async activatePlugin(context: ExtendedPluginContext): Promise<void> {
-    console.log(`[${context.manifest.id}] Activating Activity Management Plugin...`);
+    context.logger.info('Activating Activity Management Plugin...');
 
     if (this.isServer(context)) {
       activateServer(context);
@@ -22,7 +22,7 @@ export class ActivityPlugin extends Plugin {
   }
 
   async deactivate(): Promise<void> {
-    console.log('Activity Management Plugin deactivated');
+    this.log('info', 'Activity Management Plugin deactivated');
   }
 
   /**

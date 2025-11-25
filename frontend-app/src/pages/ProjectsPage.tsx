@@ -1,10 +1,9 @@
-import React from 'react';
 import { Card, Typography, Empty } from 'antd';
 import { FolderOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
 
-const ProjectsPage: React.FC = () => {
+function ProjectsPage() {
   return (
     <div>
       <Title level={2}>Projects</Title>

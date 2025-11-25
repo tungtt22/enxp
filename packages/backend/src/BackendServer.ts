@@ -4,7 +4,7 @@ import express, { Express, Router } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import path from 'path';
 import fs from 'fs/promises';
-import { PluginManager, PluginLoader, PluginMetadata } from '@enxp/core';
+import { PluginManager, PluginLoader } from '@enxp/core';
 import { BackendPlugin } from './BackendPlugin';
 import { databaseService } from './database';
 
@@ -17,6 +17,9 @@ export class BackendServer {
   private pluginLoader: PluginLoader;
   private port: number;
   private routers: Map<string, Router> = new Map();
+  private swaggerCache: { spec: any; lastBuilt: number } | null = null;
+  private swaggerTTL = 10_000; // 10s TTL for spec regeneration
+  private get logger() { return this.pluginManager.getLogger(); }
 
   constructor(port: number = 3000, config?: Record<string, any>) {
     this.app = express();
@@ -61,14 +64,14 @@ export class BackendServer {
     // Serve Swagger UI at /api-docs
     this.app.use('/api-docs', swaggerUi.serve);
     this.app.get('/api-docs', (req, res, next) => {
-      const swaggerSpec = this.generateSwaggerSpec();
+      const swaggerSpec = this.getCachedSwaggerSpec();
       const setup = swaggerUi.setup(swaggerSpec);
       setup(req, res, next);
     });
     
     // Serve raw OpenAPI spec at /api-docs/json
     this.app.get('/api-docs/json', (req, res) => {
-      const swaggerSpec = this.generateSwaggerSpec();
+      const swaggerSpec = this.getCachedSwaggerSpec();
       res.json(swaggerSpec);
     });
   }
@@ -77,6 +80,7 @@ export class BackendServer {
    * Generate dynamic Swagger specification
    */
   private generateSwaggerSpec(): any {
+    // Build fresh spec (internal use only)
     const paths: any = {};
     const tags: any[] = [];
     const schemas: any = {
@@ -170,6 +174,17 @@ export class BackendServer {
   }
 
   /**
+   * Return cached swagger spec or regenerate if TTL expired
+   */
+  private getCachedSwaggerSpec(): any {
+    const now = Date.now();
+    if (!this.swaggerCache || now - this.swaggerCache.lastBuilt > this.swaggerTTL) {
+      this.swaggerCache = { spec: this.generateSwaggerSpec(), lastBuilt: now };
+    }
+    return this.swaggerCache.spec;
+  }
+
+  /**
    * Setup plugin event handlers
    */
   private setupPluginEventHandlers(): void {
@@ -179,12 +194,14 @@ export class BackendServer {
       if (plugin.type === 'backend') {
         this.registerPluginRoutes(plugin as BackendPlugin);
         this.registerPluginMiddleware(plugin as BackendPlugin);
+        this.swaggerCache = null; // invalidate cache
       }
     });
 
     events.on('plugin:deactivated', (plugin) => {
       if (plugin.type === 'backend') {
         this.unregisterPluginRoutes(plugin.id);
+        this.swaggerCache = null; // invalidate cache
       }
     });
   }
@@ -200,7 +217,7 @@ export class BackendServer {
       const { pluginId, basePath, router } = data;
       this.app.use(basePath, router);
       this.routers.set(pluginId, router);
-      console.log(`[BackendServer] Registered plugin routes: ${basePath}`);
+      this.logger.info(`Registered plugin routes: ${basePath}`);
     });
   }
 
@@ -219,7 +236,7 @@ export class BackendServer {
     this.app.use(basePath, router);
     this.routers.set(plugin.id, router);
     
-    console.log(`[BackendServer] Registered routes for plugin ${plugin.id} at ${basePath}`);
+    this.logger.info(`Registered routes for plugin ${plugin.id} at ${basePath}`);
   }
 
   /**
@@ -228,7 +245,7 @@ export class BackendServer {
   private registerPluginMiddleware(plugin: BackendPlugin): void {
     if (plugin.registerMiddleware) {
       plugin.registerMiddleware(this.app);
-      console.log(`[BackendServer] Registered middleware for plugin ${plugin.id}`);
+      this.logger.info(`Registered middleware for plugin ${plugin.id}`);
     }
   }
 
@@ -238,7 +255,7 @@ export class BackendServer {
   private unregisterPluginRoutes(pluginId: string): void {
     this.routers.delete(pluginId);
     // Note: Express doesn't support route removal, would need to restart
-    console.log(`[BackendServer] Unregistered routes for plugin ${pluginId}`);
+    this.logger.info(`Unregistered routes (logical) for plugin ${pluginId}`);
   }
 
   /**
@@ -252,7 +269,7 @@ export class BackendServer {
       // It's a manifest-based plugin, use PluginLoader
       // PluginLoader already registers the plugin with the registry
       const plugin = await this.pluginLoader.load(pluginPath);
-      console.log(`[BackendServer] Loaded plugin: ${plugin.id}`);
+      this.logger.info(`Loaded plugin: ${plugin.id}`);
     } catch {
       // Traditional plugin, use PluginManager
       await this.pluginManager.loadPlugin(pluginPath);
@@ -277,7 +294,7 @@ export class BackendServer {
         const context = this.pluginLoader.createContext(manifest, plugin);
         await plugin.initialize(context);
         await plugin.activate();
-        console.log(`[BackendServer] Activated plugin: ${pluginId}`);
+        this.logger.info(`Activated plugin: ${pluginId}`);
         return;
       }
     }
@@ -308,7 +325,7 @@ export class BackendServer {
     try {
       await databaseService.connect();
     } catch (error) {
-      console.error('❌ Database connection failed:', error);
+      this.logger.error('Database connection failed', error as Error);
       // Server continues without database (using in-memory data)
     }
 
@@ -339,13 +356,13 @@ export class BackendServer {
 
     // Error handler
     this.app.use((err: Error, req: any, res: any, next: any) => {
-      console.error('Server error:', err);
+      this.logger.error('Server error', err as Error);
       res.status(500).json({ error: 'Internal server error', message: err.message });
     });
 
     return new Promise((resolve) => {
       this.app.listen(this.port, () => {
-        console.log(`[BackendServer] Server started on port ${this.port}`);
+        this.logger.info(`Server started on port ${this.port}`);
         resolve();
       });
     });
@@ -355,15 +372,15 @@ export class BackendServer {
    * Shutdown the server gracefully
    */
   async shutdown(): Promise<void> {
-    console.log('[BackendServer] Shutting down...');
+    this.logger.info('Shutting down...');
     
     // Close database connection
     try {
       await databaseService.disconnect();
     } catch (error) {
-      console.error('Error disconnecting database:', error);
+      this.logger.error('Error disconnecting database', error as Error);
     }
     
-    console.log('[BackendServer] Shutdown complete');
+    this.logger.info('Shutdown complete');
   }
 }

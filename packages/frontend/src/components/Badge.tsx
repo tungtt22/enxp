@@ -1,24 +1,20 @@
-import React, { CSSProperties } from 'react';
+import React, { CSSProperties, useMemo } from 'react';
 
 interface BadgeProps {
   children: React.ReactNode;
   variant?: 'default' | 'success' | 'warning' | 'error' | 'info';
   size?: 'sm' | 'md' | 'lg';
 }
-
-export const Badge: React.FC<BadgeProps> = ({ 
-  children, 
-  variant = 'default',
-  size = 'md'
-}) => {
-  const badgeStyle: CSSProperties = {
+export function Badge({ children, variant = 'default', size = 'md' }: BadgeProps) {
+  const badgeStyle = useMemo<CSSProperties>(() => ({
     ...styles.base,
     ...styles.sizes[size],
     ...styles.variants[variant]
-  };
-
+  }), [variant, size]);
   return <span style={badgeStyle}>{children}</span>;
-};
+}
+
+Badge.displayName = 'Badge';
 
 const styles = {
   base: {

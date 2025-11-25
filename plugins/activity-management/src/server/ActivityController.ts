@@ -2,8 +2,10 @@ import { Router, Request, Response } from 'express';
 import type { ActivityItem, CreateActivityDTO, UpdateActivityDTO, ActivityStats } from '../shared/types';
 
 export class ActivityController {
-  private activities: ActivityItem[] = [];
+  private activities: Map<string, ActivityItem> = new Map();
   private router: Router;
+  private statsCache: { data: ActivityStats; timestamp: number } | null = null;
+  private readonly STATS_CACHE_TTL = 10000; // 10s
 
   constructor() {
     this.router = Router();
@@ -21,7 +23,7 @@ export class ActivityController {
   }
 
   private initializeSampleData() {
-    this.activities = [
+    const samples: ActivityItem[] = [
       {
         id: '1',
         type: 'deployment',
@@ -68,89 +70,87 @@ export class ActivityController {
         metadata: { assignee: 'Jane Smith', priority: 'high' }
       }
     ];
+    samples.forEach(a => this.activities.set(a.id, a));
   }
 
   getActivities(req: Request, res: Response) {
     const { type, status } = req.query;
-    
-    let filtered = this.activities;
-    
+    let filtered = Array.from(this.activities.values());
     if (type) {
       filtered = filtered.filter(a => a.type === type);
     }
-    
     if (status) {
       filtered = filtered.filter(a => a.status === status);
     }
-    
     res.json(filtered);
   }
 
   getActivityById(req: Request, res: Response) {
     const { id } = req.params;
-    const activity = this.activities.find(a => a.id === id);
-    
+    const activity = this.activities.get(id);
     if (!activity) {
       res.status(404).json({ error: 'Activity not found' });
       return;
     }
-    
     res.json(activity);
   }
 
   createActivity(req: Request, res: Response) {
     const dto: CreateActivityDTO = req.body;
-    
+    if (!dto.title || dto.title.trim().length === 0) {
+      res.status(400).json({ error: 'Title is required' });
+      return;
+    }
     const newActivity: ActivityItem = {
-      id: String(this.activities.length + 1),
+      id: String(this.activities.size + 1),
       type: dto.type,
       status: dto.status,
-      title: dto.title,
-      description: dto.description,
+      title: dto.title.trim(),
+      description: dto.description?.trim(),
       timestamp: new Date().toISOString(),
       metadata: dto.metadata
     };
-    
-    this.activities.push(newActivity);
+    this.activities.set(newActivity.id, newActivity);
+    this.statsCache = null; // invalidate
     res.status(201).json(newActivity);
   }
 
   updateActivity(req: Request, res: Response) {
     const { id } = req.params;
     const dto: UpdateActivityDTO = req.body;
-    
-    const activity = this.activities.find(a => a.id === id);
-    
+    const activity = this.activities.get(id);
     if (!activity) {
       res.status(404).json({ error: 'Activity not found' });
       return;
     }
-    
     if (dto.type !== undefined) activity.type = dto.type;
     if (dto.status !== undefined) activity.status = dto.status;
-    if (dto.title !== undefined) activity.title = dto.title;
-    if (dto.description !== undefined) activity.description = dto.description;
+    if (dto.title !== undefined) activity.title = dto.title.trim();
+    if (dto.description !== undefined) activity.description = dto.description.trim();
     if (dto.metadata !== undefined) activity.metadata = dto.metadata;
-    
+    this.statsCache = null; // invalidate
     res.json(activity);
   }
 
   deleteActivity(req: Request, res: Response) {
     const { id } = req.params;
-    const index = this.activities.findIndex(a => a.id === id);
-    
-    if (index === -1) {
+    const deleted = this.activities.delete(id);
+    if (!deleted) {
       res.status(404).json({ error: 'Activity not found' });
       return;
     }
-    
-    this.activities.splice(index, 1);
+    this.statsCache = null; // invalidate
     res.status(204).send();
   }
 
   getStats(req: Request, res: Response) {
+    const now = Date.now();
+    if (this.statsCache && now - this.statsCache.timestamp < this.STATS_CACHE_TTL) {
+      res.json(this.statsCache.data);
+      return;
+    }
     const stats: ActivityStats = {
-      total: this.activities.length,
+      total: this.activities.size,
       byType: {
         deployment: 0,
         build: 0,
@@ -165,12 +165,11 @@ export class ActivityController {
         in_progress: 0
       }
     };
-    
-    this.activities.forEach(activity => {
+    for (const activity of this.activities.values()) {
       stats.byType[activity.type]++;
       stats.byStatus[activity.status]++;
-    });
-    
+    }
+    this.statsCache = { data: stats, timestamp: now };
     res.json(stats);
   }
 

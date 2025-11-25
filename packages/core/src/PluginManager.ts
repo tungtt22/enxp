@@ -9,6 +9,7 @@ import {
   PluginContext,
   IPluginLoader,
   IPlatformAPI,
+  PluginError,
 } from './types';
 
 /**
@@ -293,20 +294,50 @@ export class PluginManager {
   async activatePlugin(pluginId: string): Promise<void> {
     const plugin = this.registry.get(pluginId);
     if (!plugin) {
-      throw new Error(`Plugin ${pluginId} not found`);
+      throw new PluginError(`Plugin ${pluginId} not found`, 'PLUGIN_NOT_FOUND', pluginId);
     }
 
     // Check dependencies
     const metadata = this.registry.getMetadata(pluginId);
     if (metadata?.dependencies) {
-      for (const dep of metadata.dependencies) {
-        if (!dep.optional && !this.registry.has(dep.id)) {
-          throw new Error(`Required dependency ${dep.id} not found`);
+      // Resolve dependency activation order via DFS topo sort
+      const visited = new Set<string>();
+      const stack: string[] = [];
+      const temp = new Set<string>();
+      const dependencyMap: Record<string, string[]> = {};
+      const loadDeps = (id: string) => {
+        if (temp.has(id)) {
+          throw new PluginError(`Circular dependency detected at ${id}`, 'PLUGIN_CIRCULAR_DEP', pluginId);
+        }
+        if (visited.has(id)) return;
+        temp.add(id);
+        const meta = this.registry.getMetadata(id);
+        const deps = meta?.dependencies?.filter(d => !d.optional).map(d => d.id) || [];
+        dependencyMap[id] = deps;
+        for (const d of deps) {
+          if (!this.registry.has(d)) {
+            throw new PluginError(`Required dependency ${d} missing for ${id}`, 'PLUGIN_DEP_MISSING', pluginId);
+          }
+          loadDeps(d);
+        }
+        temp.delete(id);
+        visited.add(id);
+        stack.push(id);
+      };
+      loadDeps(pluginId);
+      // Activate dependencies in order except the plugin itself (last element is pluginId)
+      for (const depId of stack) {
+        if (depId === pluginId) continue;
+        const state = this.registry.getState(depId);
+        if (state !== PluginState.ACTIVE) {
+          await this.activatePlugin(depId); // recursive safe due to visited set
         }
       }
     }
-
+    const start = performance.now?.() || Date.now();
     await plugin.activate();
+    const end = performance.now?.() || Date.now();
+    this.logger.info(`Activated plugin ${pluginId} in ${(end - start).toFixed(1)}ms`);
     this.registry.setState(pluginId, PluginState.ACTIVE);
     this.events.emit('plugin:activated', plugin);
   }
@@ -355,7 +386,7 @@ export class PluginManager {
       id: plugin.id,
       name: plugin.name,
       version: plugin.version,
-      type: 'backend',
+      type: plugin.type,
       dependencies: []
     });
   }

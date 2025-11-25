@@ -1,4 +1,4 @@
-import React, { CSSProperties } from 'react';
+import React, { CSSProperties, useMemo } from 'react';
 
 interface ProgressBarProps {
   value: number;
@@ -7,33 +7,33 @@ interface ProgressBarProps {
   height?: string;
   showLabel?: boolean;
 }
-
-export const ProgressBar: React.FC<ProgressBarProps> = ({
+export function ProgressBar({
   value,
   max = 100,
   color = '#667eea',
   height = '8px',
   showLabel = false
-}) => {
+}: ProgressBarProps) {
   const percentage = Math.min((value / max) * 100, 100);
-
+  const containerStyle = useMemo<CSSProperties>(() => ({ ...styles.container, height }), [height]);
+  const fillStyle = useMemo<CSSProperties>(() => ({
+    ...styles.fill,
+    width: `${percentage}%`,
+    background: color
+  }), [percentage, color]);
   return (
     <div>
-      <div style={{ ...styles.container, height }}>
-        <div
-          style={{
-            ...styles.fill,
-            width: `${percentage}%`,
-            background: color
-          }}
-        />
+      <div style={containerStyle}>
+        <div style={fillStyle} />
       </div>
       {showLabel && (
         <span style={styles.label}>{Math.round(percentage)}%</span>
       )}
     </div>
   );
-};
+}
+
+ProgressBar.displayName = 'ProgressBar';
 
 const styles: Record<string, CSSProperties> = {
   container: {

@@ -10,7 +10,7 @@ export class TemplatesPlugin extends Plugin {
   }
 
   async activatePlugin(context: ExtendedPluginContext): Promise<void> {
-    console.log(`[${context.manifest.id}] Activating Templates Management Plugin...`);
+    context.logger.info('Activating Templates Management Plugin...');
 
     if (this.isServer(context)) {
       activateServer(context);
@@ -22,7 +22,7 @@ export class TemplatesPlugin extends Plugin {
   }
 
   async deactivate(): Promise<void> {
-    console.log('Templates Management Plugin deactivated');
+    this.log('info', 'Templates Management Plugin deactivated');
   }
 
   /**

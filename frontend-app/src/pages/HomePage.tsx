@@ -1,10 +1,9 @@
-import React from 'react';
 import { Card, Button, Empty, Typography, Space } from 'antd';
 import { PlusOutlined, AppstoreOutlined } from '@ant-design/icons';
 
 const { Title, Paragraph } = Typography;
 
-const HomePage: React.FC = () => {
+function HomePage() {
   return (
     <Space direction="vertical" size="large" style={{ width: '100%' }}>
       <div>

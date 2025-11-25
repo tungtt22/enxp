@@ -58,13 +58,24 @@ export class PluginBuilder {
   private async buildAllPlugins(options: BuildOptions): Promise<void> {
     const pluginDirs = await fs.readdir(this.pluginsDir);
 
+    const buildTargets: string[] = [];
     for (const pluginName of pluginDirs) {
       const pluginPath = path.join(this.pluginsDir, pluginName);
       const stat = await fs.stat(pluginPath);
-
       if (stat.isDirectory() && (await fs.pathExists(path.join(pluginPath, 'package.json')))) {
-        await this.buildPlugin(pluginName, options);
+        buildTargets.push(pluginName);
       }
     }
+
+    if (options.watch) {
+      // In watch mode build sequentially to keep output readable
+      for (const target of buildTargets) {
+        await this.buildPlugin(target, options);
+      }
+      return;
+    }
+
+    // Non-watch: build in parallel for speed
+    await Promise.all(buildTargets.map(t => this.buildPlugin(t, options)));
   }
 }

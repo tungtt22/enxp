@@ -7,6 +7,7 @@ import { IModernPlugin, ExtendedPluginContext, PluginManifest } from './types';
  */
 export abstract class Plugin extends BasePlugin implements IModernPlugin {
   protected manifest?: PluginManifest;
+  private activationEventPatterns: RegExp[] = [];
 
   constructor(
     id: string,
@@ -45,6 +46,14 @@ export abstract class Plugin extends BasePlugin implements IModernPlugin {
    */
   setManifest(manifest: PluginManifest): void {
     this.manifest = manifest;
+    // Precompile activation event patterns (wildcards * -> .*)
+    if (manifest.activationEvents) {
+      this.activationEventPatterns = manifest.activationEvents.map(evt => {
+        if (evt === 'onStartup') return /^onStartup$/;
+        const pattern = evt.replace(/\*/g, '.*');
+        return new RegExp(`^${pattern}$`);
+      });
+    }
   }
 
   /**
@@ -58,19 +67,11 @@ export abstract class Plugin extends BasePlugin implements IModernPlugin {
    * Check if should activate based on activation events
    */
   shouldActivate(event: string): boolean {
-    if (!this.manifest?.activationEvents) {
-      return true; // No activation events means always activate
+    if (!this.manifest?.activationEvents || this.activationEventPatterns.length === 0) return true;
+    for (const regex of this.activationEventPatterns) {
+      if (regex.test(event)) return true;
     }
-
-    return this.manifest.activationEvents.some((activationEvent) => {
-      if (activationEvent === 'onStartup') return true;
-      if (activationEvent === event) return true;
-      
-      // Handle pattern matching (e.g., "onCommand:*")
-      const pattern = activationEvent.replace(/\*/g, '.*');
-      const regex = new RegExp(`^${pattern}$`);
-      return regex.test(event);
-    });
+    return false;
   }
 
   /**

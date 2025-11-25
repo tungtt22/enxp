@@ -1,4 +1,4 @@
-import React, { CSSProperties } from 'react';
+import React, { CSSProperties, useMemo } from 'react';
 
 interface PageHeaderProps {
   title: string;
@@ -9,8 +9,8 @@ interface PageHeaderProps {
     icon?: string;
   };
 }
-
-export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, action }) => {
+export function PageHeader({ title, description, action }: PageHeaderProps) {
+  const buttonStyle = useMemo(() => styles.button, []);
   return (
     <div style={styles.container}>
       <div>
@@ -18,14 +18,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ title, description, acti
         {description && <p style={styles.description}>{description}</p>}
       </div>
       {action && (
-        <button style={styles.button} onClick={action.onClick}>
+        <button style={buttonStyle} onClick={action.onClick}>
           {action.icon && <span style={styles.icon}>{action.icon}</span>}
           {action.label}
         </button>
       )}
     </div>
   );
-};
+}
+
+PageHeader.displayName = 'PageHeader';
 
 const styles: Record<string, CSSProperties> = {
   container: {

@@ -1,4 +1,4 @@
-import React, { CSSProperties } from 'react';
+import React, { CSSProperties, useMemo } from 'react';
 
 interface CardProps {
   children: React.ReactNode;
@@ -7,31 +7,21 @@ interface CardProps {
   onClick?: () => void;
   hoverable?: boolean;
 }
-
-export const Card: React.FC<CardProps> = ({ 
-  children, 
-  className, 
-  style, 
-  onClick,
-  hoverable = false 
-}) => {
-  const cardStyle: CSSProperties = {
+export function Card({ children, className, style, onClick, hoverable = false }: CardProps) {
+  const cardStyle = useMemo<CSSProperties>(() => ({
     ...styles.card,
     ...(hoverable && styles.hoverable),
     ...(onClick && styles.clickable),
     ...style
-  };
-
+  }), [hoverable, onClick, style]);
   return (
-    <div 
-      className={className}
-      style={cardStyle}
-      onClick={onClick}
-    >
+    <div className={className} style={cardStyle} onClick={onClick}>
       {children}
     </div>
   );
-};
+}
+
+Card.displayName = 'Card';
 
 const styles: Record<string, CSSProperties> = {
   card: {

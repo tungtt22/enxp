@@ -1,5 +1,6 @@
-import React from 'react';
+import { memo, useMemo, useCallback } from 'react';
 import { Layout, Menu } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   HomeOutlined,
   FolderOutlined,
@@ -15,77 +16,89 @@ interface AppSidebarProps {
   collapsed: boolean;
 }
 
-const AppSidebar: React.FC<AppSidebarProps> = ({ collapsed }) => {
+// Define menu items outside component to prevent recreation
+const MENU_ITEMS = [
+  {
+    key: '/',
+    icon: <HomeOutlined />,
+    label: 'Home',
+  },
+  {
+    key: '/projects',
+    icon: <FolderOutlined />,
+    label: 'Projects',
+  },
+  {
+    key: '/templates',
+    icon: <FileTextOutlined />,
+    label: 'Templates',
+  },
+  {
+    key: '/activity',
+    icon: <ClockCircleOutlined />,
+    label: 'Activity',
+  },
+  {
+    key: '/settings',
+    icon: <SettingOutlined />,
+    label: 'Settings',
+  },
+] as const;
+
+const AppSidebar = memo<AppSidebarProps>(({ collapsed }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const menuItems = [
-    {
-      key: '/',
-      icon: <HomeOutlined />,
-      label: 'Home',
+  const handleMenuClick = useCallback<NonNullable<MenuProps['onClick']>>(
+    ({ key }) => {
+      navigate(key);
     },
-    {
-      key: '/projects',
-      icon: <FolderOutlined />,
-      label: 'Projects',
-    },
-    {
-      key: '/templates',
-      icon: <FileTextOutlined />,
-      label: 'Templates',
-    },
-    {
-      key: '/activity',
-      icon: <ClockCircleOutlined />,
-      label: 'Activity',
-    },
-    {
-      key: '/settings',
-      icon: <SettingOutlined />,
-      label: 'Settings',
-    },
-  ];
+    [navigate]
+  );
+
+  const siderStyle = useMemo(
+    () => ({
+      overflow: 'auto' as const,
+      height: '100vh',
+      position: 'sticky' as const,
+      top: 0,
+      left: 0,
+    }),
+    []
+  );
+
+  const logoStyle = useMemo(
+    () => ({
+      height: 64,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      color: '#fff',
+      fontSize: collapsed ? '18px' : '20px',
+      fontWeight: 'bold' as const,
+      borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+      transition: 'font-size 0.2s',
+    }),
+    [collapsed]
+  );
 
   return (
-    <Sider
-      trigger={null}
-      collapsible
-      collapsed={collapsed}
-      style={{
-        overflow: 'auto',
-        height: '100vh',
-        position: 'sticky',
-        top: 0,
-        left: 0,
-      }}
-    >
-      <div
-        style={{
-          height: 64,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#fff',
-          fontSize: collapsed ? '18px' : '20px',
-          fontWeight: 'bold',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        }}
-      >
+    <Sider trigger={null} collapsible collapsed={collapsed} style={siderStyle}>
+      <div style={logoStyle}>
         {collapsed ? 'E' : 'ENXP'}
       </div>
       <Menu
         theme="dark"
         mode="inline"
         selectedKeys={[location.pathname]}
-        items={menuItems}
-        onClick={({ key }) => navigate(key)}
-        style={{
-          borderRight: 0,
-        }}
+        items={MENU_ITEMS}
+        onClick={handleMenuClick}
+        style={{ borderRight: 0 }}
       />
     </Sider>
   );
-};
+});
+
+AppSidebar.displayName = 'AppSidebar';
 
 export default AppSidebar;

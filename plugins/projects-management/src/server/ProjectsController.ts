@@ -2,110 +2,136 @@ import { Router, Request, Response } from 'express';
 import { Project, CreateProjectDTO, UpdateProjectDTO } from '../shared';
 
 /**
- * Projects Controller - handles API requests
+ * Projects Controller - handles API requests with optimized lookups
  */
 export class ProjectsController {
-  private projects: Project[] = [];
+  private projects: Map<number, Project> = new Map();
   private nextId = 1;
+  private listCache: { data: Project[]; timestamp: number } | null = null;
+  private readonly CACHE_TTL = 5000; // 5s cache for list
 
   constructor() {
-    // Initialize with sample data
-    this.projects = [
-      {
-        id: this.nextId++,
-        name: 'ENXP Platform',
-        description: 'Extensible Engineering Platform',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: this.nextId++,
-        name: 'Plugin System',
-        description: 'Core plugin infrastructure',
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-    ];
+    // Initialize with sample data using Map for fast lookup
+    const now = new Date().toISOString();
+    const project1: Project = {
+      id: this.nextId++,
+      name: 'ENXP Platform',
+      description: 'Extensible Engineering Platform',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    };
+    const project2: Project = {
+      id: this.nextId++,
+      name: 'Plugin System',
+      description: 'Core plugin infrastructure',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.projects.set(project1.id, project1);
+    this.projects.set(project2.id, project2);
   }
 
   /**
-   * Get all projects
+   * Get all projects with caching
    */
   getProjects = async (req: Request, res: Response): Promise<void> => {
-    res.json(this.projects);
+    const now = Date.now();
+    if (!this.listCache || now - this.listCache.timestamp > this.CACHE_TTL) {
+      this.listCache = {
+        data: Array.from(this.projects.values()),
+        timestamp: now
+      };
+    }
+    res.json(this.listCache.data);
   };
 
   /**
-   * Get project by ID
+   * Get project by ID with O(1) lookup
    */
   getProject = async (req: Request, res: Response): Promise<void> => {
-    const id = parseInt(req.params.id);
-    const project = this.projects.find((p) => p.id === id);
-
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid project ID' });
+      return;
+    }
+    const project = this.projects.get(id);
     if (!project) {
       res.status(404).json({ error: 'Project not found' });
       return;
     }
-
     res.json(project);
   };
 
   /**
-   * Create new project
+   * Create new project with validation
    */
   createProject = async (req: Request, res: Response): Promise<void> => {
     const data: CreateProjectDTO = req.body;
-
+    if (!data.name || data.name.trim().length === 0) {
+      res.status(400).json({ error: 'Project name is required' });
+      return;
+    }
+    const now = new Date().toISOString();
     const project: Project = {
       id: this.nextId++,
-      name: data.name,
-      description: data.description,
+      name: data.name.trim(),
+      description: data.description?.trim(),
       status: data.status || 'active',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
-
-    this.projects.push(project);
+    this.projects.set(project.id, project);
+    this.listCache = null; // invalidate cache
     res.status(201).json(project);
   };
 
   /**
-   * Update project
+   * Update project with validation
    */
   updateProject = async (req: Request, res: Response): Promise<void> => {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid project ID' });
+      return;
+    }
     const data: UpdateProjectDTO = req.body;
-
-    const project = this.projects.find((p) => p.id === id);
-
+    const project = this.projects.get(id);
     if (!project) {
       res.status(404).json({ error: 'Project not found' });
       return;
     }
-
-    if (data.name !== undefined) project.name = data.name;
-    if (data.description !== undefined) project.description = data.description;
+    if (data.name !== undefined) {
+      const trimmed = data.name.trim();
+      if (trimmed.length === 0) {
+        res.status(400).json({ error: 'Project name cannot be empty' });
+        return;
+      }
+      project.name = trimmed;
+    }
+    if (data.description !== undefined) project.description = data.description.trim();
     if (data.status !== undefined) project.status = data.status;
     project.updatedAt = new Date().toISOString();
-
+    this.listCache = null; // invalidate cache
     res.json(project);
   };
 
   /**
-   * Delete project
+   * Delete project with O(1) removal
    */
   deleteProject = async (req: Request, res: Response): Promise<void> => {
-    const id = parseInt(req.params.id);
-    const index = this.projects.findIndex((p) => p.id === id);
-
-    if (index === -1) {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: 'Invalid project ID' });
+      return;
+    }
+    const deleted = this.projects.delete(id);
+    if (!deleted) {
       res.status(404).json({ error: 'Project not found' });
       return;
     }
-
-    this.projects.splice(index, 1);
+    this.listCache = null; // invalidate cache
     res.status(204).send();
   };
 
